@@ -15,7 +15,9 @@
     <div class="app-shell">
       <nav class="side-nav">
         <div class="brand">
-          <div class="brand-icon">L</div>
+          <div class="brand-icon">
+            <img src="assets/mat.ico" alt="Leo icon" />
+          </div>
           <div>
             <p class="brand-title">Leo Core</p>
             <p class="brand-version">v0.1.0</p>
@@ -80,6 +82,7 @@
               <div class="field">
                 <label>Ник</label>
                 <input id="username" type="text" placeholder="Player" />
+                <p class="input-error" id="usernameError" hidden></p>
               </div>
               <button class="primary" id="launchBtn">Запустить игру</button>
             </div>

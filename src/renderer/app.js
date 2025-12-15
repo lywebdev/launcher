@@ -31,6 +31,7 @@ domReady(async () => {
   const javaModal = document.getElementById('javaModal');
   const javaDownloadBtn = document.getElementById('javaDownloadBtn');
   const javaDismissBtn = document.getElementById('javaDismissBtn');
+  const usernameError = document.getElementById('usernameError');
   const engineProgressViews = [
     {
       container: document.getElementById('engineProgressModal'),
@@ -307,6 +308,17 @@ domReady(async () => {
     statusTag.textContent = text;
   };
 
+  const showUsernameError = (message) => {
+    if (!usernameError) return;
+    if (message) {
+      usernameError.textContent = message;
+      usernameError.hidden = false;
+    } else {
+      usernameError.textContent = '';
+      usernameError.hidden = true;
+    }
+  };
+
   const windowMinimize = document.getElementById('windowMinimize');
   const windowClose = document.getElementById('windowClose');
   if (windowMinimize) {
@@ -519,13 +531,16 @@ domReady(async () => {
     if (!username) {
       setStatus('Укажите ник');
       appendLog('Ошибка: ник не указан');
+      showUsernameError('Введите ник');
       return;
     }
     if (!nicknamePattern.test(username)) {
       setStatus('Только латиница и _');
       appendLog('Ошибка: ник может содержать только латинские буквы и нижнее подчёркивание');
+      showUsernameError('Допустимы только латинские буквы и _');
       return;
     }
+    showUsernameError('');
     launchBtn.disabled = true;
     setStatus('Запуск...');
     appendLog('==== Старт ===');
@@ -537,6 +552,7 @@ domReady(async () => {
     if (response.ok) {
       setStatus('Клиент запущен');
       appendLog('Minecraft запущен. Удачной игры!');
+      showUsernameError('');
     } else if (response.javaMissing) {
       setStatus('Установите Java 17');
       appendLog('Ошибка: требуется Java 17');

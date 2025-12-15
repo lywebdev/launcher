@@ -31,6 +31,7 @@ const bootstrap = async () => {
       resizable: false,
       show: false,
       backgroundColor: '#080808',
+      icon: path.join(__dirname, '..', '..', 'build', 'icon.ico'),
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         devTools: process.env.NODE_ENV === 'development',
