@@ -20,6 +20,7 @@ const runtimeRoot = path.join(config.appDataPath, 'LeoLauncher');
 const ModManager = require('./modManager');
 const ForgeManager = require('./forgeManager');
 const LauncherService = require('./launcherService');
+const ServerListManager = require('./serverListManager');
 
 const ENGINE_URL = 'https://storage.lyweb.dev/.engine.zip';
 
@@ -29,6 +30,7 @@ const bootstrap = async () => {
   const modManager = new ModManager(config.minecraftDir, config.runtimeDir, config.modsRepo);
   const forgeManager = new ForgeManager(config.forge, config.runtimeDir, config.java);
   const launcherService = new LauncherService(config);
+  const serverListManager = new ServerListManager(config.minecraftDir);
   const DEFAULT_JAVA_DOWNLOAD_URL =
     'https://www.oracle.com/java/technologies/downloads/#jdk17-windows';
   const javaDownloadUrl = config.java?.downloadUrl || DEFAULT_JAVA_DOWNLOAD_URL;
@@ -341,6 +343,7 @@ const bootstrap = async () => {
 
     mainWindow.webContents.on('did-finish-load', () => {
       mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
+      ensureServerEntryIfReady();
       sendJavaStatus();
       broadcastModsStatus().catch((error) =>
         sendLog(`Ошибка синхронизации модов: ${error.message || error}`)
@@ -463,6 +466,7 @@ const bootstrap = async () => {
       emitEngineProgress({ phase: 'done', percent: 100, active: false });
       sendLog('Компоненты лаунчера установлены.');
       mainWindow && mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
+      await ensureServerEntryIfReady();
       await broadcastModsStatus();
       return { ok: true };
     } catch (error) {
@@ -540,6 +544,7 @@ const bootstrap = async () => {
       mainWindow && mainWindow.webContents.send('mods:status', modStatuses);
       pushLog('Forge проверен');
       await forgeManager.ensureInstalled(config.minecraftDir, pushLog);
+      await ensureServerEntryIfReady();
       pushLog('Запуск Minecraft');
       await launcherService.launch(
         {
@@ -562,3 +567,13 @@ bootstrap().catch((err) => {
   console.error('Launcher bootstrap failed', err);
   app.quit();
 });
+  const ensureServerEntryIfReady = async () => {
+    if (!isEngineReady()) {
+      return;
+    }
+    try {
+      await serverListManager.ensureServer(config.server);
+    } catch (error) {
+      console.error('Failed to ensure server entry:', error);
+    }
+  };

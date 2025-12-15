@@ -15,7 +15,8 @@
     "electron-store": "^9.0.0",
     "electron-updater": "^6.3.9",
     "minecraft-launcher-core": "^2.3.0",
-    "node-fetch": "^2.6.12"
+    "node-fetch": "^2.6.12",
+    "prismarine-nbt": "^2.5.1"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

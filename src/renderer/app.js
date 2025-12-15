@@ -141,10 +141,8 @@ domReady(async () => {
       // ignore
     }
     const safeTotal = Math.max(4, totalMem);
-    const maxSelectable = Math.max(4, Math.min(32, safeTotal - 2));
-    const recommendedBase =
-      safeTotal >= 16 ? 8 : Math.max(4, Math.round(maxSelectable * 0.6));
-    const recommended = Math.min(maxSelectable, recommendedBase);
+    const maxSelectable = Math.max(4, Math.min(32, Math.floor(safeTotal * 0.85)));
+    const recommended = Math.max(3, maxSelectable);
     memorySlider.min = 3;
     memorySlider.max = maxSelectable;
     memorySlider.step = 0.5;
