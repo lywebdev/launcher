@@ -23,12 +23,14 @@ class ModManager {
     return Promise.all(
       mods.map(async (mod) => ({
         name: mod.name,
+        fileName: mod.fileName,
         installed: await fileExists(path.join(modsFolder, mod.fileName))
       }))
     );
   }
 
-  async sync() {
+  async sync(options = {}) {
+    const { force = false, onProgress } = options;
     const modsFolder = path.join(this.minecraftDir, 'mods');
     await ensureDir(modsFolder);
     const mods = await this._getRepoMods();
@@ -37,15 +39,51 @@ class ModManager {
     for (const mod of mods) {
       const destination = path.join(modsFolder, mod.fileName);
       const installed = await fileExists(destination);
-      if (!installed) {
+      const needsCopy = force || !installed;
+      if (needsCopy) {
+        onProgress &&
+          onProgress({ fileName: mod.fileName, name: mod.name, state: 'installing', percent: 0 });
         await ensureDir(path.dirname(destination));
         await fs.promises.copyFile(mod.sourcePath, destination);
+        onProgress &&
+          onProgress({ fileName: mod.fileName, name: mod.name, state: 'done', percent: 100 });
+      } else {
+        onProgress &&
+          onProgress({ fileName: mod.fileName, name: mod.name, state: 'skipped', percent: 100 });
       }
       const finalState = await fileExists(destination);
-      statuses.push({ name: mod.name, installed: finalState });
+      statuses.push({ name: mod.name, fileName: mod.fileName, installed: finalState });
     }
 
     return statuses;
+  }
+
+  async deleteMod(fileName) {
+    if (!fileName) return this.getStatuses();
+    const safeName = path.basename(fileName);
+    const modsFolder = path.join(this.minecraftDir, 'mods');
+    await ensureDir(modsFolder);
+    const target = path.join(modsFolder, safeName);
+    await fs.promises.unlink(target).catch((err) => {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
+    });
+    return this.getStatuses();
+  }
+
+  async deleteAllMods() {
+    const modsFolder = path.join(this.minecraftDir, 'mods');
+    await ensureDir(modsFolder);
+    const entries = await fs.promises.readdir(modsFolder, { withFileTypes: true });
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isFile() && entry.name.toLowerCase().endsWith('.jar')) {
+          await fs.promises.unlink(path.join(modsFolder, entry.name)).catch(() => {});
+        }
+      })
+    );
+    return this.getStatuses();
   }
 
   async _getRepoMods() {

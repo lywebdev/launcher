@@ -39,8 +39,8 @@
         <section class="panel panel-play active" data-panel="play">
           <div class="stat-card">
             <div>
-              <p class="stat-label">Сейчас на сервере</p>
-              <p class="stat-value">30 125</p>
+              <p class="stat-label">Leo Launcher</p>
+              <p class="stat-value">Готов к старту</p>
             </div>
             <div class="status-pill" id="statusTag">Готов</div>
           </div>
@@ -88,9 +88,15 @@
 
         <section class="panel panel-mods" data-panel="mods">
           <div class="card">
-            <header>
-              <p class="section-title">Статус модов</p>
-              <p class="muted">Auto-sync из GitHub</p>
+            <header class="mods-header">
+              <div>
+                <p class="section-title">Статус модов</p>
+                <p class="muted">Auto-sync из GitHub</p>
+              </div>
+              <div class="mod-actions">
+                <button class="ghost" id="reinstallModsBtn">Переустановить все моды</button>
+                <button class="ghost danger" id="deleteAllModsBtn">Удалить все</button>
+              </div>
             </header>
             <ul class="mods-list detailed" id="modsList"></ul>
           </div>
@@ -119,9 +125,14 @@
                 </select>
               </div>
             </div>
-            <button class="ghost danger settings-action" id="forceEngineBtn">
-              Переустановить компоненты лаунчера
-            </button>
+            <div class="settings-actions">
+              <button class="ghost danger settings-action" id="forceEngineBtn">
+                Переустановить компоненты лаунчера
+              </button>
+              <button class="ghost secondary settings-action" id="cancelEngineBtn" hidden>
+                Отменить установку
+              </button>
+            </div>
             <div class="engine-progress inline" id="engineProgressInline" hidden>
               <div class="engine-progress-track">
                 <div class="engine-progress-fill" id="engineProgressInlineFill"></div>
@@ -158,6 +169,18 @@
         <div class="engine-modal-actions">
           <button class="primary" id="engineInstallBtn">Установить</button>
           <button class="ghost" id="engineExitBtn">Выйти</button>
+        </div>
+      </div>
+    </div>
+    <div class="engine-modal" id="javaModal">
+      <div class="engine-modal-content">
+        <h2>Требуется Java 17</h2>
+        <p>
+          Для запуска клиента необходимо установить Java 17. Нажмите кнопку ниже, чтобы перейти на страницу скачивания, затем установите Java и попробуйте снова.
+        </p>
+        <div class="engine-modal-actions">
+          <button class="primary" id="javaDownloadBtn">Скачать Java</button>
+          <button class="ghost" id="javaDismissBtn">Закрыть</button>
         </div>
       </div>
     </div>

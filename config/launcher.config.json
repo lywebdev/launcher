@@ -16,13 +16,14 @@
   "java": {
     "minMemory": "2G",
     "maxMemory": "4G",
-    "executable": "java"
+    "executable": "java",
+    "downloadUrl": "https://www.oracle.com/java/technologies/downloads/#jdk17-windows"
   },
-  "customLaunch": {
-    "enabled": true,
-    "workDir": "C:/Users/Leonid/AppData/Roaming/.minecraft",
-    "command": "\"C:/Users/Leonid/AppData/Roaming/.minecraft/runtime/java-runtime-gamma/windows/java-runtime-gamma/bin/javaw.exe\" @{argsFileName}",
-    "argsTemplate": "launcher.args",
-    "argsFileName": "leo-launcher.args"
-  }
+    "customLaunch": {
+      "enabled": true,
+      "workDir": "C:/Users/Leonid/AppData/Roaming/.minecraft",
+      "command": "\"C:/Users/Leonid/AppData/Roaming/.minecraft/runtime/java-runtime-gamma/windows/java-runtime-gamma/bin/javaw.exe\" @{argsFileName}",
+      "argsTemplate": "launcher.args",
+      "argsFileName": "leo-launcher.args"
+    }
 }

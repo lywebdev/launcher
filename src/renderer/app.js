@@ -25,6 +25,12 @@ domReady(async () => {
   const engineInstallBtn = document.getElementById('engineInstallBtn');
   const engineExitBtn = document.getElementById('engineExitBtn');
   const forceEngineBtn = document.getElementById('forceEngineBtn');
+  const cancelEngineBtn = document.getElementById('cancelEngineBtn');
+  const deleteAllModsBtn = document.getElementById('deleteAllModsBtn');
+  const reinstallModsBtn = document.getElementById('reinstallModsBtn');
+  const javaModal = document.getElementById('javaModal');
+  const javaDownloadBtn = document.getElementById('javaDownloadBtn');
+  const javaDismissBtn = document.getElementById('javaDismissBtn');
   const engineProgressViews = [
     {
       container: document.getElementById('engineProgressModal'),
@@ -39,7 +45,15 @@ domReady(async () => {
       timeoutId: null
     }
   ];
+  const modProgressState = new Map();
+  let currentModStatuses = [];
+  let engineReinstallInProgress = false;
+  const nicknamePattern = /^[A-Za-z_]+$/;
   let engineReady = true;
+  let javaReady = true;
+  let javaDownloadUrl = '';
+  const defaultJavaDownloadUrl =
+    'https://www.oracle.com/java/technologies/downloads/#jdk17-windows';
 
   const updateEngineProgress = ({ phase = 'download', percent = 0, active = false }) => {
     const labels = {
@@ -47,10 +61,11 @@ domReady(async () => {
       download: 'Загрузка архива',
       extract: 'Распаковка файлов',
       done: 'Готово',
-      error: 'Ошибка установки'
+      error: 'Ошибка установки',
+      cancelled: 'Установка отменена'
     };
     const caption =
-      phase === 'start' || phase === 'error'
+      phase === 'start' || phase === 'error' || phase === 'cancelled'
         ? labels[phase] || 'Прогресс'
         : `${labels[phase] || 'Прогресс'} — ${Math.round(percent)}%`;
 
@@ -62,14 +77,14 @@ domReady(async () => {
       }
 
       if (!active) {
-        if (phase === 'done') {
+        if (phase === 'done' || phase === 'cancelled') {
           view.container.hidden = false;
           if (view.fill) view.fill.style.width = '100%';
-          if (view.text) view.text.textContent = labels.done;
+          if (view.text) view.text.textContent = labels[phase] || labels.done;
           view.timeoutId = window.setTimeout(() => {
             view.container.hidden = true;
             view.timeoutId = null;
-          }, 1200);
+          }, phase === 'done' ? 1200 : 1500);
         } else if (phase === 'error') {
           view.container.hidden = false;
           if (view.fill) view.fill.style.width = '0%';
@@ -94,9 +109,60 @@ domReady(async () => {
       }
     });
 
-    if (engineStatusText && (active || phase === 'error')) {
+    if (engineStatusText && (active || phase === 'error' || phase === 'cancelled' || phase === 'done')) {
       engineStatusText.textContent = caption;
     }
+
+    if (!active && engineReinstallInProgress && ['done', 'error', 'cancelled'].includes(phase)) {
+      engineReinstallInProgress = false;
+      toggleEngineCancelButton(false);
+    }
+  };
+
+  const toggleEngineCancelButton = (visible) => {
+    if (!cancelEngineBtn) return;
+    if (!visible) {
+      cancelEngineBtn.hidden = true;
+      cancelEngineBtn.disabled = true;
+      return;
+    }
+    cancelEngineBtn.hidden = false;
+    cancelEngineBtn.disabled = false;
+  };
+
+  const setModActionsDisabled = (disabled) => {
+    if (reinstallModsBtn) {
+      reinstallModsBtn.disabled = disabled;
+    }
+    if (deleteAllModsBtn) {
+      deleteAllModsBtn.disabled = disabled;
+    }
+  };
+
+  const getModStateLabel = (mod, progress) => {
+    if (progress) {
+      if (progress.state === 'installing') {
+        return 'Устанавливается...';
+      }
+      if (progress.state === 'skipped') {
+        return 'Пропущен';
+      }
+    }
+    return mod.installed ? 'Установлен' : 'Не найден';
+  };
+
+  const getModProgressMarkup = (progress) => {
+    if (!progress || progress.state !== 'installing') {
+      return '';
+    }
+    const percent = Math.min(100, Math.max(5, Math.round(progress.percent ?? 0)));
+    return `
+      <div class="mod-progress">
+        <div class="mod-progress-track">
+          <div class="mod-progress-fill" style="width:${percent}%"></div>
+        </div>
+        <p class="mod-progress-label">${percent}%</p>
+      </div>`;
   };
 
   const showEngineModal = (visible) => {
@@ -124,6 +190,24 @@ domReady(async () => {
     }
   };
 
+  const showJavaModal = (visible) => {
+    if (!javaModal) return;
+    javaModal.classList.toggle('visible', visible);
+  };
+
+  const handleJavaStatus = (payload) => {
+    if (!payload) return;
+    javaReady = Boolean(payload.ready);
+    if (payload.downloadUrl) {
+      javaDownloadUrl = payload.downloadUrl;
+    }
+    if (javaReady) {
+      showJavaModal(false);
+    } else {
+      showJavaModal(true);
+    }
+  };
+
   const switchPanel = (target) => {
     panels.forEach((panel) => {
       if (panel.dataset.panel === target) {
@@ -148,25 +232,37 @@ domReady(async () => {
   });
 
   const renderMods = (statuses = []) => {
+    currentModStatuses = statuses;
     if (modsCount) {
       const installed = statuses.filter((mod) => mod.installed).length;
       modsCount.textContent = `${installed}/${statuses.length}`;
     }
 
-    const template = (mod) => `
-      <li>
-        <span class="mod-dot ${mod.installed ? 'installed' : 'missing'}"></span>
-        <div>
-          <p class="mod-name">${mod.name}</p>
-          <p class="mod-state">${mod.installed ? 'Установлен' : 'Не найден'}</p>
-        </div>
-      </li>`;
+    const buildTemplate = (mod, withActions = false) => {
+      const fileName = mod.fileName || mod.name;
+      const progress = modProgressState.get(fileName);
+      const stateText = getModStateLabel(mod, progress);
+      const progressMarkup = getModProgressMarkup(progress);
+      const actionMarkup = withActions
+        ? `<button class="ghost mini mod-delete" data-mod="${fileName}">Удалить</button>`
+        : '';
+      return `
+        <li class="mod-item ${mod.installed ? 'installed' : 'missing'}">
+          <span class="mod-dot ${mod.installed ? 'installed' : 'missing'}"></span>
+          <div class="mod-info">
+            <p class="mod-name">${mod.name}</p>
+            <p class="mod-state">${stateText}</p>
+            ${progressMarkup}
+          </div>
+          ${actionMarkup}
+        </li>`;
+    };
 
     if (modsSummary) {
-      modsSummary.innerHTML = statuses.map(template).join('');
+      modsSummary.innerHTML = statuses.map((mod) => buildTemplate(mod, false)).join('');
     }
     if (modsList) {
-      modsList.innerHTML = statuses.map(template).join('');
+      modsList.innerHTML = statuses.map((mod) => buildTemplate(mod, true)).join('');
     }
   };
 
@@ -178,6 +274,8 @@ domReady(async () => {
   serverVersion.textContent = `${config.forge.mcVersion} Forge`;
   renderMods(config.status || []);
   handleEngineStatus(Boolean(config.engineReady));
+  javaDownloadUrl = config.javaDownloadUrl || defaultJavaDownloadUrl;
+  handleJavaStatus({ ready: Boolean(config.javaReady), downloadUrl: javaDownloadUrl });
 
   document.getElementById('copyIp').addEventListener('click', async () => {
     await navigator.clipboard.writeText(`${config.server.address}:${config.server.port}`);
@@ -200,7 +298,10 @@ domReady(async () => {
   };
 
   window.launcherApi.onLog((message) => appendLog(message));
-  window.launcherApi.onModsStatus((statuses) => renderMods(statuses));
+  window.launcherApi.onModsStatus((statuses) => {
+    modProgressState.clear();
+    renderMods(statuses);
+  });
 
   const setStatus = (text) => {
     statusTag.textContent = text;
@@ -229,8 +330,13 @@ domReady(async () => {
         engineStatusText && (engineStatusText.textContent = 'Компоненты установлены.');
         engineInstallBtn.textContent = 'Готово';
       } else {
-        engineStatusText &&
-          (engineStatusText.textContent = `Ошибка установки: ${result.error || 'неизвестно'}`);
+        if (result.cancelled) {
+          engineStatusText && (engineStatusText.textContent = 'Установка отменена.');
+          appendLog('Установка компонентов отменена.');
+        } else {
+          engineStatusText &&
+            (engineStatusText.textContent = `Ошибка установки: ${result.error || 'неизвестно'}`);
+        }
         engineInstallBtn.disabled = false;
         engineInstallBtn.textContent = 'Повторить';
       }
@@ -254,10 +360,19 @@ domReady(async () => {
       const defaultText = forceEngineBtn.textContent;
       forceEngineBtn.textContent = 'Обновляем...';
       appendLog('Принудительная установка компонентов лаунчера...');
+      engineReinstallInProgress = true;
+      toggleEngineCancelButton(true);
       const result = await window.launcherApi.installEngine();
       if (!result.ok) {
-        appendLog(`Ошибка принудительной установки: ${result.error || 'неизвестно'}`);
-        setStatus('Ошибка установки компонентов');
+        if (result.cancelled) {
+          appendLog('Отмена установки компонентов.');
+          setStatus('Установка отменена');
+        } else {
+          appendLog(`Ошибка принудительной установки: ${result.error || 'неизвестно'}`);
+          setStatus('Ошибка установки компонентов');
+        }
+        engineReinstallInProgress = false;
+        toggleEngineCancelButton(false);
       } else {
         setStatus('Компоненты обновлены');
       }
@@ -266,14 +381,126 @@ domReady(async () => {
     });
   }
 
+  if (cancelEngineBtn) {
+    cancelEngineBtn.addEventListener('click', async () => {
+      cancelEngineBtn.disabled = true;
+      appendLog('Отмена переустановки компонентов лаунчера...');
+      const cancelResult = await window.launcherApi.cancelEngineInstall();
+      if (!cancelResult.ok) {
+        appendLog('Нет активной установки для отмены.');
+        engineReinstallInProgress = false;
+        toggleEngineCancelButton(false);
+      }
+    });
+  }
+
+  if (javaDownloadBtn) {
+    javaDownloadBtn.addEventListener('click', () => {
+      const target = javaDownloadUrl || defaultJavaDownloadUrl;
+      window.launcherApi.openExternal(target);
+    });
+  }
+
+  if (javaDismissBtn) {
+    javaDismissBtn.addEventListener('click', () => showJavaModal(false));
+  }
+
+  if (reinstallModsBtn) {
+    reinstallModsBtn.addEventListener('click', async () => {
+      if (reinstallModsBtn.disabled) return;
+      setModActionsDisabled(true);
+      modProgressState.clear();
+      renderMods(currentModStatuses);
+      appendLog('Переустановка всех модов...');
+      try {
+        const result = await window.launcherApi.reinstallMods();
+        if (!result.ok) {
+          appendLog(`Ошибка переустановки модов: ${result.error || 'неизвестно'}`);
+          setStatus('Ошибка установки модов');
+        } else {
+          appendLog('Моды переустановлены.');
+          setStatus('Моды обновлены');
+        }
+      } catch (error) {
+        appendLog(`Ошибка переустановки модов: ${error.message}`);
+        setStatus('Ошибка установки модов');
+      } finally {
+        setModActionsDisabled(false);
+      }
+    });
+  }
+
+  if (deleteAllModsBtn) {
+    deleteAllModsBtn.addEventListener('click', async () => {
+      if (deleteAllModsBtn.disabled) return;
+      const confirmed = window.confirm('Удалить все моды? Это действие нельзя отменить.');
+      if (!confirmed) return;
+      setModActionsDisabled(true);
+      appendLog('Удаление всех модов...');
+      try {
+        const result = await window.launcherApi.deleteAllMods();
+        if (!result.ok) {
+          appendLog(`Ошибка удаления модов: ${result.error || 'неизвестно'}`);
+          setStatus('Ошибка удаления модов');
+        } else {
+          appendLog('Все моды удалены.');
+          setStatus('Моды удалены');
+        }
+      } catch (error) {
+        appendLog(`Ошибка удаления модов: ${error.message}`);
+        setStatus('Ошибка удаления модов');
+      } finally {
+        setModActionsDisabled(false);
+      }
+    });
+  }
+
+  if (modsList) {
+    modsList.addEventListener('click', async (event) => {
+      const button = event.target.closest('.mod-delete');
+      if (!button) return;
+      if (button.disabled) return;
+      const fileName = button.dataset.mod;
+      appendLog(`Удаление мода ${fileName}...`);
+      button.disabled = true;
+      try {
+        const result = await window.launcherApi.deleteMod(fileName);
+        if (!result.ok) {
+          appendLog(`Ошибка удаления мода ${fileName}: ${result.error || 'неизвестно'}`);
+          setStatus('Ошибка удаления мода');
+        } else {
+          appendLog(`Мод ${fileName} удалён.`);
+        }
+      } catch (error) {
+        appendLog(`Ошибка удаления мода ${fileName}: ${error.message}`);
+        setStatus('Ошибка удаления мода');
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
   window.launcherApi.onEngineStatus((payload) => {
     if (payload && typeof payload.ready === 'boolean') {
       handleEngineStatus(payload.ready);
     }
   });
+  window.launcherApi.onJavaStatus((payload) => {
+    handleJavaStatus(payload);
+  });
   window.launcherApi.onEngineProgress((payload) => {
     if (!payload) return;
     updateEngineProgress(payload);
+  });
+
+  window.launcherApi.onModsInstallProgress((payload) => {
+    if (!payload || !payload.fileName) return;
+    if (payload.state === 'done' || payload.state === 'skipped' || payload.state === 'error') {
+      modProgressState.delete(payload.fileName);
+    } else {
+      modProgressState.set(payload.fileName, payload);
+    }
+    renderMods(currentModStatuses);
   });
 
   launchBtn.addEventListener('click', async () => {
@@ -282,10 +509,21 @@ domReady(async () => {
       appendLog('Ошибка: нужно установить компоненты лаунчера');
       return;
     }
+    if (!javaReady) {
+      setStatus('Установите Java 17');
+      appendLog('Ошибка: требуется Java 17');
+      showJavaModal(true);
+      return;
+    }
     const username = (usernameInput.value || '').trim();
     if (!username) {
       setStatus('Укажите ник');
       appendLog('Ошибка: ник не указан');
+      return;
+    }
+    if (!nicknamePattern.test(username)) {
+      setStatus('Только латиница и _');
+      appendLog('Ошибка: ник может содержать только латинские буквы и нижнее подчёркивание');
       return;
     }
     launchBtn.disabled = true;
@@ -299,6 +537,10 @@ domReady(async () => {
     if (response.ok) {
       setStatus('Клиент запущен');
       appendLog('Minecraft запущен. Удачной игры!');
+    } else if (response.javaMissing) {
+      setStatus('Установите Java 17');
+      appendLog('Ошибка: требуется Java 17');
+      showJavaModal(true);
     } else {
       setStatus('Ошибка');
       appendLog(`Ошибка: ${response.error}`);
