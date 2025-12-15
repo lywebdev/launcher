@@ -1,7 +1,18 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawn, exec } = require('child_process');
 const { Client, Authenticator } = require('minecraft-launcher-core');
+
+const getAppDataPath = () => {
+  if (process.platform === 'win32') {
+    return process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support');
+  }
+  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+};
 
 class LauncherService {
   constructor(config) {
@@ -68,11 +79,16 @@ class LauncherService {
   launchCustom({ username, minMemory, maxMemory }, onLog) {
     return new Promise((resolve, reject) => {
       const custom = this.config.customLaunch || {};
+      const appDataDir = this.config.appDataPath || getAppDataPath();
+      const normalize = (value) => (value ? value.replace(/\\/g, '/') : value);
       const placeholders = {
         username: username || 'Player',
         minMemory: minMemory || this.config.java.minMemory,
         maxMemory: maxMemory || this.config.java.maxMemory,
-        minecraftDir: this.config.minecraftDir
+        minecraftDir: this.config.minecraftDir,
+        minecraftDirForward: normalize(this.config.minecraftDir || ''),
+        appData: appDataDir,
+        appDataForward: normalize(appDataDir)
       };
       const applyPlaceholders = (value) => {
         if (typeof value !== 'string') {

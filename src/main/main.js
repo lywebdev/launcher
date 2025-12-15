@@ -7,6 +7,7 @@ const AdmZip = require('adm-zip');
 const fetch = require('node-fetch');
 
 const config = require('./config');
+config.appDataPath = config.appDataPath || app.getPath('appData');
 const ModManager = require('./modManager');
 const ForgeManager = require('./forgeManager');
 const LauncherService = require('./launcherService');
@@ -75,23 +76,40 @@ const bootstrap = async () => {
     return parseInt(parts[0], 10);
   };
 
+  const normalizeForwardSlashes = (value) => (value ? value.replace(/\\/g, '/') : value);
+
+  const renderConfigPlaceholders = (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+    const appDataDir = config.appDataPath || app.getPath('appData');
+    const replacements = {
+      minecraftDir: config.minecraftDir,
+      minecraftDirForward: normalizeForwardSlashes(config.minecraftDir || ''),
+      appData: appDataDir,
+      appDataForward: normalizeForwardSlashes(appDataDir || '')
+    };
+    return value.replace(/\{(\w+)\}/g, (_, key) => replacements[key] ?? '');
+  };
+
   const resolveCustomCommandJavaPath = () => {
     const custom = config.customLaunch || {};
     if (custom.javaPath) {
-      return custom.javaPath;
+      const renderedPath = renderConfigPlaceholders(custom.javaPath).trim();
+      return renderedPath || null;
     }
     if (custom.command) {
-      const trimmed = custom.command.trim();
-      if (!trimmed) {
+      const renderedCommand = renderConfigPlaceholders(custom.command).trim();
+      if (!renderedCommand) {
         return null;
       }
-      if (trimmed.startsWith('"')) {
-        const closing = trimmed.indexOf('"', 1);
+      if (renderedCommand.startsWith('"')) {
+        const closing = renderedCommand.indexOf('"', 1);
         if (closing > 1) {
-          return trimmed.slice(1, closing);
+          return renderedCommand.slice(1, closing);
         }
       }
-      const [firstToken] = trimmed.split(/\s+/);
+      const [firstToken] = renderedCommand.split(/\s+/);
       return firstToken;
     }
     return null;
