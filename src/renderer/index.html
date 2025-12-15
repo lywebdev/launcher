@@ -17,7 +17,7 @@
         <div class="brand">
           <div class="brand-icon">L</div>
           <div>
-            <p class="brand-title">Leo Launcher</p>
+            <p class="brand-title">Leo Core</p>
             <p class="brand-version">v0.1.0</p>
           </div>
         </div>
@@ -27,7 +27,8 @@
           <li data-panel="settings">Настройки</li>
         </ul>
         <div class="socials">
-          <span>Discord</span>
+          <a href="https://t.me/lkwebdev" target="_blank" rel="noreferrer">Telegram</a>
+          <a href="https://discord.gg/jNKZdGYc" target="_blank" rel="noreferrer">Discord</a>
         </div>
       </nav>
       <main class="main-panel">
@@ -101,7 +102,7 @@
               <p class="section-title">Параметры запуска</p>
             </header>
             <div class="form-grid">
-              <div class="field">
+              <div class="field select-field">
                 <label>Мин. память</label>
                 <select id="minMem">
                   <option value="2G">2 ГБ</option>
@@ -109,7 +110,7 @@
                   <option value="4G">4 ГБ</option>
                 </select>
               </div>
-              <div class="field">
+              <div class="field select-field">
                 <label>Макс. память</label>
                 <select id="maxMem">
                   <option value="4G">4 ГБ</option>
@@ -117,6 +118,15 @@
                   <option value="8G">8 ГБ</option>
                 </select>
               </div>
+            </div>
+            <button class="ghost danger settings-action" id="forceEngineBtn">
+              Переустановить компоненты лаунчера
+            </button>
+            <div class="engine-progress inline" id="engineProgressInline" hidden>
+              <div class="engine-progress-track">
+                <div class="engine-progress-fill" id="engineProgressInlineFill"></div>
+              </div>
+              <p class="engine-progress-label" id="engineProgressInlineText">0%</p>
             </div>
           </div>
           <div class="card log-card">
@@ -129,11 +139,28 @@
         </section>
       </main>
       <aside class="hero-panel">
-        <div class="hero-title">Leo City Stories</div>
+        <div class="hero-title">Leo Multiverse</div>
         <p>Синхронизируем моды из GitHub-репозитория и подключаемся к серверу в пару кликов.</p>
       </aside>
+    </div>
+    <div class="engine-modal" id="engineModal">
+      <div class="engine-modal-content">
+        <h2>Необходима установка компонентов</h2>
+        <p id="engineStatusText">
+          Чтобы продолжить, установите дополнительные файлы лаунчера. Они могут перезаписать часть текущей установки Minecraft.
+        </p>
+        <div class="engine-progress" id="engineProgressModal" hidden>
+          <div class="engine-progress-track">
+            <div class="engine-progress-fill" id="engineProgressModalFill"></div>
+          </div>
+          <p class="engine-progress-label" id="engineProgressModalText">0%</p>
+        </div>
+        <div class="engine-modal-actions">
+          <button class="primary" id="engineInstallBtn">Установить</button>
+          <button class="ghost" id="engineExitBtn">Выйти</button>
+        </div>
+      </div>
     </div>
     <script src="app.js"></script>
   </body>
 </html>
-

@@ -1,11 +1,16 @@
-﻿const path = require('path');
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+﻿const fs = require('fs');
+const path = require('path');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const AdmZip = require('adm-zip');
+const fetch = require('node-fetch');
 
 const config = require('./config');
 const ModManager = require('./modManager');
 const ForgeManager = require('./forgeManager');
 const LauncherService = require('./launcherService');
+
+const ENGINE_URL = 'https://storage.lyweb.dev/.engine.zip';
 
 const bootstrap = async () => {
   const Store = (await import('electron-store')).default;
@@ -41,6 +46,58 @@ const bootstrap = async () => {
     mainWindow && mainWindow.webContents.send('launcher:log', message);
   };
 
+  const emitEngineProgress = (payload) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('engine:install-progress', payload);
+    }
+  };
+
+  const isEngineReady = () => {
+    const appData = app.getPath('appData');
+    const minecraftDir = path.join(appData, '.minecraft');
+    const tlauncherDir = path.join(appData, '.tlauncher');
+    return fs.existsSync(minecraftDir) && fs.existsSync(tlauncherDir);
+  };
+
+  const downloadEngineArchive = async (onProgress) => {
+    const response = await fetch(ENGINE_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to download engine archive (HTTP ${response.status})`);
+    }
+    const totalBytes = Number(response.headers.get('content-length') || 0);
+    const tempZipPath = path.join(app.getPath('temp'), `leo-engine-${Date.now()}.zip`);
+    await new Promise((resolve, reject) => {
+      const fileStream = fs.createWriteStream(tempZipPath);
+      let downloaded = 0;
+      response.body.on('data', (chunk) => {
+        downloaded += chunk.length;
+        if (typeof onProgress === 'function') {
+          const percent = totalBytes ? Math.min(100, (downloaded / totalBytes) * 100) : 0;
+          onProgress({ phase: 'download', downloaded, total: totalBytes, percent });
+        }
+      });
+      response.body.on('error', (error) => {
+        fileStream.destroy();
+        reject(error);
+      });
+      fileStream.on('finish', resolve);
+      response.body.pipe(fileStream);
+    });
+    return tempZipPath;
+  };
+
+  const installEngine = async (onProgress) => {
+    const archivePath = await downloadEngineArchive(onProgress);
+    try {
+      onProgress && onProgress({ phase: 'extract', percent: 5 });
+      const zip = new AdmZip(archivePath);
+      zip.extractAllTo(app.getPath('appData'), false);
+      onProgress && onProgress({ phase: 'extract', percent: 100 });
+    } finally {
+      await fs.promises.unlink(archivePath).catch(() => {});
+    }
+  };
+
   const setupAutoUpdater = () => {
     if (process.env.NODE_ENV === 'development') {
       return;
@@ -58,6 +115,10 @@ const bootstrap = async () => {
   app.whenReady().then(() => {
     mainWindow = createWindow();
     setupAutoUpdater();
+
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -77,13 +138,32 @@ const bootstrap = async () => {
     forge: config.forge,
     java: config.java,
     lastUsername: store.get('lastUsername', ''),
-    status: await modManager.getStatuses()
+    status: await modManager.getStatuses(),
+    engineReady: isEngineReady()
   }));
 
   ipcMain.handle('launcher:open-mods', async () => {
     const modsFolder = path.join(config.minecraftDir, 'mods');
     await shell.openPath(modsFolder);
     return true;
+  });
+
+  ipcMain.handle('engine:install', async () => {
+    try {
+      sendLog('Загрузка компонентов лаунчера...');
+      emitEngineProgress({ phase: 'start', percent: 0, active: true });
+      await installEngine((progress) => emitEngineProgress({ ...progress, active: true }));
+      emitEngineProgress({ phase: 'done', percent: 100, active: false });
+      sendLog('Компоненты лаунчера установлены.');
+      mainWindow && mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
+      return { ok: true };
+    } catch (error) {
+      console.error('Engine installation error:', error);
+      sendLog(`Ошибка установки компонентов: ${error.message}`);
+      emitEngineProgress({ phase: 'error', percent: 0, active: false });
+      dialog.showErrorBox('LeoLauncher', error.message);
+      return { ok: false, error: error.message };
+    }
   });
 
   ipcMain.handle('window:minimize', () => {

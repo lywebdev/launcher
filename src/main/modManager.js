@@ -99,7 +99,7 @@ class ModManager {
     const zipPath = path.join(repoFolder, 'repo.zip');
     await this._download(this.repoConfig.zipUrl, zipPath);
     const zip = new AdmZip(zipPath);
-    zip.extractAllTo(repoFolder, true);
+    zip.extractAllTo(repoFolder, false);
 
     if (this.repoConfig.subfolder) {
       this.repoRoot = expectedRoot;
