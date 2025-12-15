@@ -1,63 +1,63 @@
-# Leo Forge Launcher
+# LeoLauncher
 
-РљР°СЃС‚РѕРјРЅС‹Р№ Р»Р°СѓРЅС‡РµСЂ РґР»СЏ Minecraft 1.20.1 Forge СЃ UI, РІРґРѕС…РЅРѕРІР»С‘РЅРЅС‹Рј Majestic RP, Рё СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРµР№ РјРѕРґРѕРІ РёР· GitHub.
+Custom Electron launcher for Minecraft Forge 1.20.1. It synchronizes mods from a GitHub repository, ensures Forge is installed, runs an existing ForgeOptiFine build, packages into installers (EXE/DMG/AppImage), and checks GitHub Releases for updates.
 
-## РџРѕРґРіРѕС‚РѕРІРєР° РѕРєСЂСѓР¶РµРЅРёСЏ
+## Features
+- Syncs required mods from https://github.com/lywebdev/storage (storage-main/m_server/mods).
+- Auto-installs/verifies Forge 1.20.1.
+- Launches a preconfigured ForgeOptiFine instance via config/launcher.args.
+- Builds installers through electron-builder and performs auto-updates with electron-updater.
 
-1. РЈСЃС‚Р°РЅРѕРІРёС‚Рµ [Node.js 18+](https://nodejs.org) Рё Java 17 (СѓРєР°Р¶РёС‚Рµ `java` РІ `PATH` РёР»Рё РїСЂРѕРїРёС€РёС‚Рµ `java.executable` РІ РєРѕРЅС„РёРіРµ).
-2. Р’ РєРѕСЂРЅРµ РїСЂРѕРµРєС‚Р° РІС‹РїРѕР»РЅРёС‚Рµ:
-   ```bash
-   npm install
-   npm run dev
-   ```
-   Р”Р»СЏ РїСЂРѕРґР°РєС€РµРЅ-Р·Р°РїСѓСЃРєР° Р±РµР· devtools РјРѕР¶РЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ `npm start`.
+## Requirements
+- Node.js 18+
+- npm 9+
+- Java 17 available on the system (the custom launch points to %APPDATA%/.minecraft).
 
-## Р РµРїРѕР·РёС‚РѕСЂРёР№ СЃ РјРѕРґР°РјРё
-
-`src/main/modManager.js` СЃРєР°С‡РёРІР°РµС‚ ZIP РёР· `config.modsRepo.zipUrl`, СЂР°СЃРїР°РєРѕРІС‹РІР°РµС‚ РµРіРѕ РІ `.launcher/mods-repo` Рё Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РЅР°С…РѕРґРёС‚ РІСЃРµ `.jar` РІРЅСѓС‚СЂРё `modsRepo.subfolder`. РљР°Р¶РґС‹Р№ РЅР°Р№РґРµРЅРЅС‹Р№ С„Р°Р№Р» РєРѕРїРёСЂСѓРµС‚СЃСЏ РІ `.minecraft/mods`, С‚Р°Рє С‡С‚Рѕ СЃРїРёСЃРѕРє РјРѕРґРѕРІ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ РѕРґРЅРѕР№ РґРёСЂРµРєС‚РѕСЂРёРµР№ РІ GitHub.
-
-- `modsRepo.zipUrl` вЂ” СЃСЃС‹Р»РєР° РЅР° Р°СЂС…РёРІ GitHub (РЅР°РїСЂРёРјРµСЂ, `https://github.com/lywebdev/storage/archive/refs/heads/main.zip`).
-- `modsRepo.subfolder` вЂ” РїР°РїРєР° РІРЅСѓС‚СЂРё Р°СЂС…РёРІР°, РіРґРµ Р»РµР¶Р°С‚ jar-С„Р°Р№Р»С‹ (РЅР°РїСЂРёРјРµСЂ, `storage-main/m_server/mods`).
-- Р§С‚РѕР±С‹ РѕР±РЅРѕРІРёС‚СЊ РЅР°Р±РѕСЂ РјРѕРґРѕРІ, РїСЂРѕСЃС‚Рѕ РґРѕР±Р°РІСЊС‚Рµ/СѓРґР°Р»РёС‚Рµ `.jar` РІ GitHub Рё РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚Рµ Р»Р°СѓРЅС‡РµСЂ. РџСЂРё РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё С‡РёСЃС‚РѕР№ Р·Р°РіСЂСѓР·РєРё СѓРґР°Р»РёС‚Рµ `.launcher/mods-repo`.
-
-### РљР°СЃС‚РѕРјРЅС‹Р№ СЃРїРѕСЃРѕР± Р·Р°РїСѓСЃРєР°
-
-Р•СЃР»Рё РЅСѓР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ Р·Р°СЂР°РЅРµРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅСѓСЋ СЃР±РѕСЂРєСѓ (РЅР°РїСЂРёРјРµСЂ, ForgeOptiFine), РѕРїРёС€РёС‚Рµ РµС‘ РІ `config.customLaunch`:
-
-- `enabled`: `true`, С‡С‚РѕР±С‹ Р°РєС‚РёРІРёСЂРѕРІР°С‚СЊ РєР°СЃС‚РѕРјРЅС‹Р№ СЃС†РµРЅР°СЂРёР№.
-- `workDir`: СЂР°Р±РѕС‡Р°СЏ РґРёСЂРµРєС‚РѕСЂРёСЏ (РѕР±С‹С‡РЅРѕ `.minecraft`).
-- `command`: СЃС‚СЂРѕРєР° СЃ РїРѕР»РЅРѕР№ РєРѕРјР°РЅРґРѕР№ (Р±РµР· РІРЅРµС€РЅРёС… РєР°РІС‹С‡РµРє). РњРѕР¶РЅРѕ РІСЃС‚Р°РІР»СЏС‚СЊ РїР»РµР№СЃС…РѕР»РґРµСЂС‹ `{username}`, `{minMemory}`, `{maxMemory}`. Р•СЃР»Рё СѓРєР°Р·Р°РЅР° `command`, Р»Р°СѓРЅС‡РµСЂ РІС‹РїРѕР»РЅРёС‚ РµС‘ С‡РµСЂРµР· `cmd.exe /c` (Windows) РёР»Рё `/bin/sh -c` (Linux/macOS).
-- РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅРѕ РјРѕР¶РЅРѕ Р·Р°РґР°С‚СЊ `javaPath`, `jvmArgs`, `classpath`, `mainClass`, `gameArgs`, С‡С‚РѕР±С‹ Р»Р°СѓРЅС‡РµСЂ СЃР°Рј СЃС„РѕСЂРјРёСЂРѕРІР°Р» РєРѕРјР°РЅРґСѓ.
-
-РџСЂРё Р°РєС‚РёРІРёСЂРѕРІР°РЅРЅРѕРј `customLaunch` СЃС‚Р°РЅРґР°СЂС‚РЅС‹Р№ Р·Р°РїСѓСЃРє С‡РµСЂРµР· `minecraft-launcher-core` РѕС‚РєР»СЋС‡Р°РµС‚СЃСЏ, Рё Р»Р°СѓРЅС‡РµСЂ РїСЂРѕСЃС‚Рѕ РІС‹РїРѕР»РЅСЏРµС‚ СЌС‚Сѓ Java-РєРѕРјР°РЅРґСѓ.
-
-## Р’РѕР·РјРѕР¶РЅРѕСЃС‚Рё Р»Р°СѓРЅС‡РµСЂР°
-
-- РўР°Р± В«РРіСЂР°С‚СЊВ» РїРѕРєР°Р·С‹РІР°РµС‚ СЃС‚Р°С‚СѓСЃ СЃРµСЂРІРµСЂР°, СЃРїРёСЃРѕРє РјРѕРґРѕРІ СЃ РёРЅРґРёРєР°С‚РѕСЂР°РјРё Рё Р±С‹СЃС‚СЂС‹Р№ РІРІРѕРґ РЅРёРєР° + РєРЅРѕРїРєСѓ Р·Р°РїСѓСЃРєР°.
-- РўР°Р± В«РњРѕРґС‹В» СЃРѕРґРµСЂР¶РёС‚ РґРµС‚Р°Р»РёР·РёСЂРѕРІР°РЅРЅС‹Р№ СЃС‚Р°С‚СѓСЃ РєР°Р¶РґРѕРіРѕ С„Р°Р№Р»Р° РёР· GitHub-СЂРµРїРѕР·РёС‚РѕСЂРёСЏ.
-- РўР°Р± В«РќР°СЃС‚СЂРѕР№РєРёВ» С…СЂР°РЅРёС‚ РїР°СЂР°РјРµС‚СЂС‹ РїР°РјСЏС‚Рё Рё Р»РѕРіРё Р·Р°РїСѓСЃРєР°.
-- РџРµСЂРµРґ Р·Р°РїСѓСЃРєРѕРј: СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РјРѕРґРѕРІ РёР· GitHub > РїСЂРѕРІРµСЂРєР° Forge > СЃС‚Р°СЂС‚ Minecraft С‡РµСЂРµР· [`minecraft-launcher-core`](https://github.com/Voxelum/minecraft-launcher-core-node).
-- IP СЃРµСЂРІРµСЂР° Р·Р°РґР°С‘С‚СЃСЏ РІ `config.server.address` (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ `89.105.217.188:25565`).
-
-## РџСЂРѕРІРµСЂРєР°
-
-РџРѕСЃР»Рµ СѓСЃС‚Р°РЅРѕРІРєРё Р·Р°РІРёСЃРёРјРѕСЃС‚РµР№:
-
+## Getting Started
 ```bash
+npm install
 npm run dev
 ```
+`npm run dev` runs Electron with devtools; `npm start` launches production mode without hot reload.
 
-РћС‚РєСЂРѕРµС‚СЃСЏ РѕРєРЅРѕ Electron. Р’ Р»РѕРіР°С… СѓРІРёРґРёС‚Рµ СЌС‚Р°РїС‹ Р·Р°РїСѓСЃРєР°. Р›РѕРіРё Рё РїР°СЂР°РјРµС‚СЂС‹ РґРѕСЃС‚СѓРїРЅС‹ РІРѕ РІРєР»Р°РґРєРµ В«РќР°СЃС‚СЂРѕР№РєРёВ».
+## Configuration (config/launcher.config.json)
+- `server`: name/address/port shown in the UI and used for quick connect.
+- `modsRepo.zipUrl`: archive URL with all required JARs.
+- `modsRepo.subfolder`: directory (inside the archive) that contains the `.jar` files.
+- `forge`: Minecraft version, Forge version, installer URL, generated profile name.
+- `java`: default min/max RAM and Java executable fallback.
+- `customLaunch`: controls the external Java command. By default launcher.args is copied into `.minecraft/leo-launcher.args` and executed via `javaw.exe @leo-launcher.args`.
 
-> ?? РўСЂРµР±СѓСЋС‚СЃСЏ Java 17 Рё РїСЂР°РІР° РЅР° Р·Р°РїРёСЃСЊ РІ `.minecraft`. Р•СЃР»Рё РєР»РёРµРЅС‚ СѓСЃС‚Р°РЅРѕРІР»РµРЅ РІ РґСЂСѓРіРѕРµ РјРµСЃС‚Рѕ, Р·Р°РґР°Р№С‚Рµ `"minecraftDir"` РІ РєРѕРЅС„РёРіРµ.
+`src/main/modManager.js` downloads the archive into `.launcher/mods-repo` and mirrors its contents into `.minecraft/mods` while preserving existing user mods.
 
-### Desktop builds (EXE/DMG/AppImage)
+## Packaging Source Bundle
+```bash
+npm run package
+```
+Creates `release/leo-launcher/` and `release/leo-launcher.zip` with `src/`, `config/`, `package*.json`, and README for manual distribution.
 
-1. Make sure dev deps installed: 
-pm install (this pulls electron-builder).
-2. Add your icons into uild/icon.ico (Windows) and uild/icon.icns (macOS). Linux uses PNGs from the same folder.
-3. Run 
-pm run dist.
-4. The installer/output appears in dist/ (e.g. Leo Launcher Setup.exe). Share it with players.
+## Desktop Builds (EXE/DMG/AppImage)
+1. Place icons in `build/icon.ico` (Windows), `build/icon.icns` (macOS), and PNGs in `build/` for Linux.
+2. Run `npm run dist`.
+3. Installers land in `dist/` (e.g., `LeoLauncher Setup 0.1.0.exe`). Default install path is `C:\Program Files\LeoLauncher`, but the user can change it (`oneClick=false`, `perMachine=true`).
 
-electron-builder ���������� package.json#build � ��� ������������� �������� ppId, ���� (win.target, mac.target, linux.target) ��� ������ ������.
+## Auto Updates via GitHub Releases
+1. Bump `version` in `package.json`.
+2. Create a GitHub token with `repo` scope and export it as `GH_TOKEN` (PowerShell: `setx GH_TOKEN <token>` then restart the terminal).
+3. Run `npm run dist -- --publish always` to build and publish to `lywebdev/launcher` Releases (draft by default).
+4. On app launch, `electron-updater` checks for updates (disabled in dev mode), downloads them in the background, and installs the new version after restart.
+
+To publish manually, upload `LeoLauncher Setup <version>.exe` and the matching `latest.yml` to a GitHub Release. The launcher reads those files on startup.
+
+## Useful npm Scripts
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start Electron in development mode. |
+| `npm start` | Launch Electron in production mode. |
+| `npm run package` | Create `release/leo-launcher.zip` with sources/config. |
+| `npm run dist` | Build installers via electron-builder (NSIS on Windows). |
+
+## Notes
+- Ensure ForgeOptiFine resources already exist in `%APPDATA%/.minecraft` (paths referenced in `launcher.args`).
+- Mods in GitHub should be updated whenever the server modpack changes.
+- Launcher logs (including updater status) are sent to the renderer via the `launcher:log` IPC channel.

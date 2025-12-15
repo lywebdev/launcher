@@ -13,6 +13,7 @@
   "dependencies": {
     "adm-zip": "^0.5.12",
     "electron-store": "^9.0.0",
+    "electron-updater": "^6.3.9",
     "minecraft-launcher-core": "^2.3.0",
     "node-fetch": "^2.6.12"
   },
@@ -51,6 +52,14 @@
       "perMachine": true,
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lywebdev",
+        "repo": "launcher",
+        "releaseType": "draft"
+      }
+    ]
   }
 }

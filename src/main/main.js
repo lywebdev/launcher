@@ -1,5 +1,6 @@
 ﻿const path = require('path');
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 
 const config = require('./config');
 const ModManager = require('./modManager');
@@ -36,8 +37,27 @@ const bootstrap = async () => {
 
   let mainWindow;
 
+  const sendLog = (message) => {
+    mainWindow && mainWindow.webContents.send('launcher:log', message);
+  };
+
+  const setupAutoUpdater = () => {
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+    autoUpdater.autoDownload = true;
+    autoUpdater.on('update-available', () => sendLog('Найдена новая версия лаунчера. Скачиваем обновление...'));
+    autoUpdater.on('download-progress', (progress) => {
+      sendLog(`Обновление лаунчера: ${Math.round(progress.percent)}%`);
+    });
+    autoUpdater.on('update-downloaded', () => sendLog('Обновление скачано и будет установлено после перезапуска.'));
+    autoUpdater.on('error', (err) => sendLog(`Ошибка обновления лаунчера: ${err.message}`));
+    autoUpdater.checkForUpdatesAndNotify();
+  };
+
   app.whenReady().then(() => {
     mainWindow = createWindow();
+    setupAutoUpdater();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -82,9 +102,7 @@ const bootstrap = async () => {
 
   ipcMain.handle('launcher:launch', async (_event, payload) => {
     store.set('lastUsername', payload.username);
-    const pushLog = (message) => {
-      mainWindow && mainWindow.webContents.send('launcher:log', message);
-    };
+    const pushLog = (message) => sendLog(message);
 
     try {
       pushLog('Синхронизация модов');
@@ -114,4 +132,3 @@ bootstrap().catch((err) => {
   console.error('Launcher bootstrap failed', err);
   app.quit();
 });
-
