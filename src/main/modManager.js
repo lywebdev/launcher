@@ -14,6 +14,10 @@ class ModManager {
     this.repoConfig = repoConfig;
     this.repoRoot = null;
     this.repoModsCache = null;
+    this.repoFolder = path.join(this.runtimeDir, 'mods-repo');
+    this.repoMetaPath = path.join(this.repoFolder, 'repo-meta.json');
+    this.remoteSignatureCache = null;
+    this.remoteSignatureCacheTime = 0;
   }
 
   async getStatuses() {
@@ -33,7 +37,7 @@ class ModManager {
     const { force = false, onProgress } = options;
     const modsFolder = path.join(this.minecraftDir, 'mods');
     await ensureDir(modsFolder);
-    const mods = await this._getRepoMods();
+    const mods = await this._getRepoMods(force);
     const statuses = [];
 
     for (const mod of mods) {
@@ -86,8 +90,8 @@ class ModManager {
     return this.getStatuses();
   }
 
-  async _getRepoMods() {
-    await this.ensureRepoReady();
+  async _getRepoMods(forceRefresh = false) {
+    await this.ensureRepoReady(forceRefresh);
     if (this.repoModsCache) {
       return this.repoModsCache;
     }
@@ -117,41 +121,120 @@ class ModManager {
     }
   }
 
-  async ensureRepoReady() {
+  async ensureRepoReady(forceRefresh = false) {
     if (!this.repoConfig.zipUrl) {
       throw new Error('modsRepo.zipUrl не настроен');
     }
-    if (this.repoRoot && (await fileExists(this.repoRoot))) {
-      return this.repoRoot;
-    }
+    await ensureDir(this.repoFolder);
+    const expectedRoot = path.join(this.repoFolder, this.repoConfig.subfolder || '');
+    const needsUpdate =
+      forceRefresh ||
+      !(await fileExists(expectedRoot)) ||
+      (await this._needsRepoUpdate());
 
-    const repoFolder = path.join(this.runtimeDir, 'mods-repo');
-    await ensureDir(repoFolder);
-    const expectedRoot = path.join(repoFolder, this.repoConfig.subfolder || '');
-    if (await fileExists(expectedRoot)) {
-      this.repoRoot = expectedRoot;
+    if (needsUpdate) {
+      await this._refreshRepo(expectedRoot);
       this.repoModsCache = null;
-      return this.repoRoot;
+    } else {
+      this.repoRoot = expectedRoot;
     }
 
-    const zipPath = path.join(repoFolder, 'repo.zip');
-    await this._download(this.repoConfig.zipUrl, zipPath);
+    return this.repoRoot;
+  }
+
+  async _refreshRepo(expectedRoot) {
+    await fs.promises.rm(this.repoFolder, { recursive: true, force: true }).catch(() => {});
+    await ensureDir(this.repoFolder);
+    const zipPath = path.join(this.repoFolder, 'repo.zip');
+    const headers = await this._download(this.repoConfig.zipUrl, zipPath);
     const zip = new AdmZip(zipPath);
-    zip.extractAllTo(repoFolder, false);
+    zip.extractAllTo(this.repoFolder, false);
+    await fs.promises.unlink(zipPath).catch(() => {});
 
     if (this.repoConfig.subfolder) {
       this.repoRoot = expectedRoot;
     } else {
       const firstEntry = zip.getEntries().find((entry) => entry.isDirectory);
       const baseDir = firstEntry ? firstEntry.entryName.split('/')[0] : '';
-      this.repoRoot = path.join(repoFolder, baseDir);
+      this.repoRoot = path.join(this.repoFolder, baseDir);
     }
 
     if (!(await fileExists(this.repoRoot))) {
       throw new Error('Не удалось подготовить репозиторий модов');
     }
-    this.repoModsCache = null;
+
+    const signature = this._extractSignatureFromHeaders(headers) || Date.now().toString();
+    await fs.promises
+      .writeFile(
+        this.repoMetaPath,
+        JSON.stringify({ signature, updatedAt: Date.now() }, null, 2),
+        'utf-8'
+      )
+      .catch(() => {});
+
     return this.repoRoot;
+  }
+
+  async _needsRepoUpdate() {
+    const meta = await this._readRepoMeta();
+    if (!meta || !meta.signature) {
+      return true;
+    }
+    const remoteSignature = await this._fetchRemoteSignature();
+    if (!remoteSignature) {
+      return false;
+    }
+    return meta.signature !== remoteSignature;
+  }
+
+  async _readRepoMeta() {
+    try {
+      const raw = await fs.promises.readFile(this.repoMetaPath, 'utf-8');
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  async _fetchRemoteSignature() {
+    const now = Date.now();
+    if (this.remoteSignatureCache && now - this.remoteSignatureCacheTime < 60_000) {
+      return this.remoteSignatureCache;
+    }
+    try {
+      const response = await fetch(this.repoConfig.zipUrl, { method: 'HEAD' });
+      if (!response.ok) {
+        return null;
+      }
+      const signature = this._extractSignatureFromHeaders(response.headers);
+      this.remoteSignatureCache = signature;
+      this.remoteSignatureCacheTime = now;
+      return signature;
+    } catch {
+      return null;
+    }
+  }
+
+  _extractSignatureFromHeaders(headers) {
+    if (!headers) {
+      return null;
+    }
+    if (typeof headers.get === 'function') {
+      return (
+        headers.get('etag') ||
+        headers.get('last-modified') ||
+        headers.get('content-length') ||
+        null
+      );
+    }
+    return (
+      headers.etag ||
+      headers.lastModified ||
+      headers['last-modified'] ||
+      headers.contentLength ||
+      headers['content-length'] ||
+      null
+    );
   }
 
   async _download(url, destination) {
@@ -160,6 +243,11 @@ class ModManager {
       throw new Error(`Ошибка загрузки ${url}: ${response.status}`);
     }
     await pipeline(response.body, fs.createWriteStream(destination));
+    return {
+      etag: response.headers.get('etag'),
+      lastModified: response.headers.get('last-modified'),
+      contentLength: response.headers.get('content-length')
+    };
   }
 }
 
