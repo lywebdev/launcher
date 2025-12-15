@@ -3,6 +3,7 @@ const path = require('path');
 const os = require('os');
 
 const CONFIG_PATH = path.join(__dirname, '../../config/launcher.config.json');
+const CONFIG_DIR = path.dirname(CONFIG_PATH);
 
 const defaultMinecraftDir = () => {
   const home = os.homedir();
@@ -27,7 +28,7 @@ function loadConfig() {
   parsed.modsRepo = parsed.modsRepo || {};
   parsed.customLaunch = parsed.customLaunch || { enabled: false };
   if (parsed.customLaunch.argsTemplate) {
-    parsed.customLaunch.argsTemplate = path.resolve(process.cwd(), parsed.customLaunch.argsTemplate);
+    parsed.customLaunch.argsTemplate = path.resolve(CONFIG_DIR, parsed.customLaunch.argsTemplate);
   }
   if (parsed.customLaunch && parsed.customLaunch.argsFileName === undefined) {
     parsed.customLaunch.argsFileName = 'launcher.args';

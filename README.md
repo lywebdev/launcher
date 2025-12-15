@@ -50,3 +50,14 @@ npm run dev
 РћС‚РєСЂРѕРµС‚СЃСЏ РѕРєРЅРѕ Electron. Р’ Р»РѕРіР°С… СѓРІРёРґРёС‚Рµ СЌС‚Р°РїС‹ Р·Р°РїСѓСЃРєР°. Р›РѕРіРё Рё РїР°СЂР°РјРµС‚СЂС‹ РґРѕСЃС‚СѓРїРЅС‹ РІРѕ РІРєР»Р°РґРєРµ В«РќР°СЃС‚СЂРѕР№РєРёВ».
 
 > ?? РўСЂРµР±СѓСЋС‚СЃСЏ Java 17 Рё РїСЂР°РІР° РЅР° Р·Р°РїРёСЃСЊ РІ `.minecraft`. Р•СЃР»Рё РєР»РёРµРЅС‚ СѓСЃС‚Р°РЅРѕРІР»РµРЅ РІ РґСЂСѓРіРѕРµ РјРµСЃС‚Рѕ, Р·Р°РґР°Р№С‚Рµ `"minecraftDir"` РІ РєРѕРЅС„РёРіРµ.
+
+### Desktop builds (EXE/DMG/AppImage)
+
+1. Make sure dev deps installed: 
+pm install (this pulls electron-builder).
+2. Add your icons into uild/icon.ico (Windows) and uild/icon.icns (macOS). Linux uses PNGs from the same folder.
+3. Run 
+pm run dist.
+4. The installer/output appears in dist/ (e.g. Leo Launcher Setup.exe). Share it with players.
+
+electron-builder ���������� package.json#build � ��� ������������� �������� ppId, ���� (win.target, mac.target, linux.target) ��� ������ ������.

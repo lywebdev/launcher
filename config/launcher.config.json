@@ -22,8 +22,7 @@
     "enabled": true,
     "workDir": "C:/Users/Leonid/AppData/Roaming/.minecraft",
     "command": "\"C:/Users/Leonid/AppData/Roaming/.minecraft/runtime/java-runtime-gamma/windows/java-runtime-gamma/bin/javaw.exe\" @{argsFileName}",
-    "argsTemplate": "config/launcher.args",
+    "argsTemplate": "launcher.args",
     "argsFileName": "leo-launcher.args"
   }
 }
-

@@ -6,6 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "cross-env NODE_ENV=development electron .",
+    "package": "node scripts/create-release.js",
+    "dist": "electron-builder",
     "lint": "echo 'Add linter of your choice'"
   },
   "dependencies": {
@@ -16,6 +18,39 @@
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
-    "electron": "^31.3.0"
+    "electron": "^31.3.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.leolauncher.app",
+    "productName": "LeoLauncher",
+    "files": [
+      "src/**/*",
+      "config/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "extraMetadata": {
+      "name": "leo-launcher"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build"
+    },
+    "nsis": {
+      "perMachine": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
