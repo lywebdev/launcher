@@ -541,6 +541,49 @@ select:focus {
   margin-top: 0;
 }
 
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  background: #080808;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 2000;
+}
+
+.boot-overlay.visible {
+  opacity: 0.96;
+  pointer-events: all;
+}
+
+.boot-overlay-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+  color: #fff;
+  font-size: 18px;
+}
+
+.boot-spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ff2d72;
+  animation: boot-spin 1s linear infinite;
+}
+
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .engine-progress {
   display: flex;
   flex-direction: column;

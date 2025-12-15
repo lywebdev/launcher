@@ -48,6 +48,7 @@ const bootstrap = async () => {
 
   let mainWindow;
   let engineInstallAbortController = null;
+  let modStatusesCache = [];
   const ENGINE_ABORT_ERROR = 'ENGINE_INSTALL_ABORTED';
   const isEngineAbortError = (error) =>
     error &&
@@ -188,6 +189,7 @@ const bootstrap = async () => {
 
   const broadcastModsStatus = async () => {
     const statuses = await getModStatusesSafe();
+    modStatusesCache = statuses;
     mainWindow && mainWindow.webContents.send('mods:status', statuses);
     return statuses;
   };
@@ -296,6 +298,9 @@ const bootstrap = async () => {
     mainWindow.webContents.on('did-finish-load', () => {
       mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
       sendJavaStatus();
+      broadcastModsStatus().catch((error) =>
+        sendLog(`Ошибка синхронизации модов: ${error.message || error}`)
+      );
     });
 
     app.on('activate', () => {
@@ -318,7 +323,7 @@ const bootstrap = async () => {
       forge: config.forge,
       java: config.java,
       lastUsername: store.get('lastUsername', ''),
-      status: await getModStatusesSafe(),
+      status: modStatusesCache,
       engineReady: isEngineReady(),
       javaReady: javaStatus.ready,
       javaDownloadUrl: javaStatus.downloadUrl,
@@ -366,6 +371,7 @@ const bootstrap = async () => {
         force: true,
         onProgress: (payload) => mainWindow && mainWindow.webContents.send('mods:install-progress', payload)
       });
+      modStatusesCache = statuses;
       mainWindow && mainWindow.webContents.send('mods:status', statuses);
       return { ok: true };
     } catch (error) {
@@ -390,6 +396,7 @@ const bootstrap = async () => {
       emitEngineProgress({ phase: 'done', percent: 100, active: false });
       sendLog('Компоненты лаунчера установлены.');
       mainWindow && mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
+      await broadcastModsStatus();
       return { ok: true };
     } catch (error) {
       if (isEngineAbortError(error)) {

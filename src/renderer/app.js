@@ -32,6 +32,8 @@ domReady(async () => {
   const javaDownloadBtn = document.getElementById('javaDownloadBtn');
   const javaDismissBtn = document.getElementById('javaDismissBtn');
   const usernameError = document.getElementById('usernameError');
+  const bootOverlay = document.getElementById('bootOverlay');
+  const bootOverlayText = document.getElementById('bootOverlayText');
   const engineProgressViews = [
     {
       container: document.getElementById('engineProgressModal'),
@@ -49,12 +51,25 @@ domReady(async () => {
   const modProgressState = new Map();
   let currentModStatuses = [];
   let engineReinstallInProgress = false;
+  let modsLoading = true;
   const nicknamePattern = /^[A-Za-z_]+$/;
   let engineReady = true;
   let javaReady = true;
   let javaDownloadUrl = '';
   const defaultJavaDownloadUrl =
     'https://www.oracle.com/java/technologies/downloads/#jdk17-windows';
+
+  const setBootOverlayMessage = (message) => {
+    if (bootOverlayText && message) {
+      bootOverlayText.textContent = message;
+    }
+  };
+
+  const hideBootOverlay = () => {
+    if (bootOverlay) {
+      bootOverlay.classList.remove('visible');
+    }
+  };
 
   const updateEngineProgress = ({ phase = 'download', percent = 0, active = false }) => {
     const labels = {
@@ -188,6 +203,8 @@ domReady(async () => {
         engineInstallBtn.textContent = 'Установить';
       }
       launchBtn.disabled = true;
+      modsLoading = true;
+      renderMods(currentModStatuses);
     }
   };
 
@@ -235,8 +252,39 @@ domReady(async () => {
   const renderMods = (statuses = []) => {
     currentModStatuses = statuses;
     if (modsCount) {
-      const installed = statuses.filter((mod) => mod.installed).length;
-      modsCount.textContent = `${installed}/${statuses.length}`;
+      if (modsLoading) {
+        modsCount.textContent = '—';
+      } else if (statuses.length) {
+        const installed = statuses.filter((mod) => mod.installed).length;
+        modsCount.textContent = `${installed}/${statuses.length}`;
+      } else {
+        modsCount.textContent = '0/0';
+      }
+    }
+
+    if (modsLoading) {
+      const placeholder =
+        '<li class="mod-item muted">Синхронизация модов с GitHub...</li>';
+      if (modsSummary) {
+        modsSummary.innerHTML = placeholder;
+      }
+      if (modsList) {
+        modsList.innerHTML =
+          '<li class="mod-item muted">Загружаем список модов. Это может занять пару минут при первом запуске.</li>';
+      }
+      return;
+    }
+
+    if (!statuses.length) {
+      const emptyMessage = '<li class="mod-item muted">Моды не найдены.</li>';
+      if (modsSummary) {
+        modsSummary.innerHTML = emptyMessage;
+      }
+      if (modsList) {
+        modsList.innerHTML =
+          '<li class="mod-item muted">Нет доступных модов. Проверьте конфигурацию репозитория.</li>';
+      }
+      return;
     }
 
     const buildTemplate = (mod, withActions = false) => {
@@ -267,7 +315,16 @@ domReady(async () => {
     }
   };
 
-  const config = await window.launcherApi.getConfig();
+  setBootOverlayMessage('Подготовка лаунчера...');
+  let config = null;
+  try {
+    config = await window.launcherApi.getConfig();
+  } catch (error) {
+    console.error('Не удалось получить конфигурацию лаунчера', error);
+    setBootOverlayMessage('Ошибка загрузки. Перезапустите лаунчер.');
+    return;
+  }
+  hideBootOverlay();
   if (config.lastUsername) {
     usernameInput.value = config.lastUsername;
   }
@@ -300,6 +357,13 @@ domReady(async () => {
 
   window.launcherApi.onLog((message) => appendLog(message));
   window.launcherApi.onModsStatus((statuses) => {
+    if (!engineReady && !statuses.length) {
+      modsLoading = true;
+      modProgressState.clear();
+      renderMods([]);
+      return;
+    }
+    modsLoading = false;
     modProgressState.clear();
     renderMods(statuses);
   });
