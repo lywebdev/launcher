@@ -1,0 +1,29 @@
+{
+  "server": {
+    "name": "Leo Forge",
+    "address": "89.105.217.188",
+    "port": 25565
+  },
+  "modsRepo": {
+    "zipUrl": "https://github.com/lywebdev/storage/archive/refs/heads/main.zip",
+    "subfolder": "storage-main/m_server/mods"
+  },
+  "forge": {
+    "mcVersion": "1.20.1",
+    "version": "47.2.0",
+    "installerUrl": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.2.0/forge-1.20.1-47.2.0-installer.jar"
+  },
+  "java": {
+    "minMemory": "2G",
+    "maxMemory": "4G",
+    "executable": "java"
+  },
+  "customLaunch": {
+    "enabled": true,
+    "workDir": "C:/Users/Leonid/AppData/Roaming/.minecraft",
+    "command": "\"C:/Users/Leonid/AppData/Roaming/.minecraft/runtime/java-runtime-gamma/windows/java-runtime-gamma/bin/javaw.exe\" @{argsFileName}",
+    "argsTemplate": "config/launcher.args",
+    "argsFileName": "leo-launcher.args"
+  }
+}
+

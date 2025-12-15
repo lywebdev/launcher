@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leo Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap&subset=latin,cyrillic" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap&subset=latin,cyrillic" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="side-nav">
+        <div class="brand">
+          <div class="brand-icon">L</div>
+          <div>
+            <p class="brand-title">Leo Launcher</p>
+            <p class="brand-version">v0.1.0</p>
+          </div>
+        </div>
+        <ul class="menu" id="menu">
+          <li class="active" data-panel="play">Играть</li>
+          <li data-panel="mods">Моды</li>
+          <li data-panel="settings">Настройки</li>
+        </ul>
+        <div class="socials">
+          <span>Discord</span>
+        </div>
+      </nav>
+      <main class="main-panel">
+        <div class="window-controls">
+          <button class="window-btn" id="windowMinimize" title="Свернуть">&#9472;</button>
+          <button class="window-btn close" id="windowClose" title="Закрыть">&#10005;</button>
+        </div>
+        <section class="panel panel-play active" data-panel="play">
+          <div class="stat-card">
+            <div>
+              <p class="stat-label">Сейчас на сервере</p>
+              <p class="stat-value">30 125</p>
+            </div>
+            <div class="status-pill" id="statusTag">Готов</div>
+          </div>
+          <div class="card servers-card">
+            <header>
+              <p class="section-title">Leo Forge</p>
+              <button class="ghost" id="copyIp">Скопировать IP</button>
+            </header>
+            <div class="server-info">
+              <div>
+                <p class="muted">Адрес</p>
+                <p class="server-ip" id="serverAddress">0.0.0.0</p>
+              </div>
+              <div>
+                <p class="muted">Версия</p>
+                <p class="server-version" id="serverVersion">1.20.1 Forge</p>
+              </div>
+              <div>
+                <p class="muted">Моды</p>
+                <p class="server-version"><span id="modsCount">0</span> шт.</p>
+              </div>
+            </div>
+          </div>
+          <div class="card mods-card">
+            <header>
+              <p class="section-title">Обязательные моды</p>
+              <button class="ghost" id="openMods">Папка mods</button>
+            </header>
+            <ul class="mods-list" id="modsSummary"></ul>
+          </div>
+          <div class="card launch-card">
+            <header>
+              <p class="section-title">Запуск</p>
+              <p class="muted">Введите ник и стартуйте</p>
+            </header>
+            <div class="launch-grid">
+              <div class="field">
+                <label>Ник</label>
+                <input id="username" type="text" placeholder="Player" />
+              </div>
+              <button class="primary" id="launchBtn">Запустить игру</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-mods" data-panel="mods">
+          <div class="card">
+            <header>
+              <p class="section-title">Статус модов</p>
+              <p class="muted">Auto-sync из GitHub</p>
+            </header>
+            <ul class="mods-list detailed" id="modsList"></ul>
+          </div>
+        </section>
+
+        <section class="panel panel-settings" data-panel="settings">
+          <div class="card">
+            <header>
+              <p class="section-title">Параметры запуска</p>
+            </header>
+            <div class="form-grid">
+              <div class="field">
+                <label>Мин. память</label>
+                <select id="minMem">
+                  <option value="2G">2 ГБ</option>
+                  <option value="3G">3 ГБ</option>
+                  <option value="4G">4 ГБ</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Макс. память</label>
+                <select id="maxMem">
+                  <option value="4G">4 ГБ</option>
+                  <option value="6G">6 ГБ</option>
+                  <option value="8G">8 ГБ</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="card log-card">
+            <header>
+              <p class="section-title">Логи</p>
+              <button class="ghost" id="clearLog">Очистить</button>
+            </header>
+            <div class="log" id="logView"></div>
+          </div>
+        </section>
+      </main>
+      <aside class="hero-panel">
+        <div class="hero-title">Leo City Stories</div>
+        <p>Синхронизируем моды из GitHub-репозитория и подключаемся к серверу в пару кликов.</p>
+      </aside>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
+

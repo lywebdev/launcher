@@ -1,0 +1,381 @@
+﻿:root {
+  font-family: "Montserrat", "Segoe UI", "Roboto", sans-serif;
+  color: #f1f3ff;
+  background: #090909;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: #080808;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr 320px;
+  min-height: 100vh;
+  background: #030303;
+}
+
+.side-nav {
+  background: #0d0d11;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(140deg, #ff007f, #ff4d4d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.brand-title {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.brand-version {
+  font-size: 12px;
+  color: #7d7d92;
+}
+
+.menu {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu li {
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #a6a7bd;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.menu li.active,
+.menu li:hover {
+  background: rgba(255, 0, 122, 0.18);
+  color: #fff;
+}
+
+.socials {
+  margin-top: auto;
+  color: #7d7d92;
+  font-size: 12px;
+}
+
+.main-panel {
+  padding: 40px;
+  background: radial-gradient(circle at top right, rgba(255, 0, 122, 0.25), transparent 45%), #07070a;
+  position: relative;
+}
+
+.window-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.window-btn {
+  width: 34px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.window-btn.close {
+  color: #ff8a8a;
+}
+
+.panel {
+  display: none;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panel.active {
+  display: flex;
+}
+
+.stat-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-radius: 24px;
+  background: linear-gradient(120deg, #ff0f7b, #f89b29);
+}
+
+.stat-label {
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  opacity: 0.85;
+}
+
+.stat-value {
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.status-pill {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.card {
+  background: rgba(8, 8, 12, 0.9);
+  border-radius: 24px;
+  padding: 24px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.ghost {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: transparent;
+  color: #f1f3ff;
+  cursor: pointer;
+}
+
+.server-info {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.server-ip,
+.server-version {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.muted {
+  color: #8b8cad;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.mods-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mods-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mod-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mod-dot.installed {
+  background: #3bd671;
+  box-shadow: 0 0 12px rgba(59, 214, 113, 0.7);
+}
+
+.mod-dot.missing {
+  background: #ff4d4d;
+  box-shadow: 0 0 12px rgba(255, 77, 77, 0.7);
+}
+
+.mod-name {
+  font-weight: 500;
+}
+
+.mod-state {
+  font-size: 12px;
+  color: #a3a4c7;
+}
+
+.launch-card .launch-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #8586aa;
+}
+
+input,
+select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 12px 16px;
+  color: #f1f3ff;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(255, 0, 122, 0.6);
+}
+
+.primary {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #ff0f7b, #f89b29);
+  color: #0b0b13;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 20px 30px rgba(248, 155, 41, 0.4);
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.log {
+  min-height: 150px;
+  max-height: 240px;
+  overflow-y: auto;
+  font-size: 14px;
+  color: #cfd3ff;
+  font-family: "Fira Code", "JetBrains Mono", "Consolas", monospace;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.log p {
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+
+.hero-panel {
+  background: linear-gradient(160deg, #13131c 30%, #ff0066);
+  padding: 48px 32px;
+  color: #fefefe;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  top: 25%;
+  right: -20%;
+}
+
+.hero-title {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.hero-panel p {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+
+@media (max-width: 1400px) {
+  .app-shell {
+    grid-template-columns: 220px 1fr;
+  }
+  .hero-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .side-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .main-panel {
+    padding: 24px;
+  }
+  .server-info {
+    grid-template-columns: 1fr;
+  }
+  .launch-card .launch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
