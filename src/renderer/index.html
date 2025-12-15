@@ -19,8 +19,8 @@
             <img src="assets/mat.ico" alt="Leo icon" />
           </div>
           <div>
-            <p class="brand-title">Leo Core</p>
-            <p class="brand-version">v0.1.0</p>
+            <p class="brand-title">LeoLauncher</p>
+            <p class="brand-version">Многомировой запуск</p>
           </div>
         </div>
         <ul class="menu" id="menu">
@@ -42,9 +42,11 @@
           <div class="stat-card">
             <div>
               <p class="stat-label">Leo Launcher</p>
-              <p class="stat-value">Готов к старту</p>
+              <p class="stat-value" id="statusTitle">Готов к старту</p>
+              <p class="stat-subtitle" id="statusSubtitle">Все системы готовы.</p>
+              <p class="stat-message" id="statusMessage"></p>
             </div>
-            <div class="status-pill" id="statusTag">Готов</div>
+            <div class="status-pill status-ok" id="statusTag">Готов</div>
           </div>
           <div class="card servers-card">
             <header>
@@ -66,13 +68,6 @@
               </div>
             </div>
           </div>
-          <div class="card mods-card">
-            <header>
-              <p class="section-title">Обязательные моды</p>
-              <button class="ghost" id="openMods">Папка mods</button>
-            </header>
-            <ul class="mods-list" id="modsSummary"></ul>
-          </div>
           <div class="card launch-card">
             <header>
               <p class="section-title">Запуск</p>
@@ -86,6 +81,14 @@
               </div>
               <button class="primary" id="launchBtn">Запустить игру</button>
             </div>
+          </div>
+          <div class="card mods-card">
+            <header>
+              <p class="section-title">Обязательные моды</p>
+              <button class="ghost" id="openMods">Папка mods</button>
+            </header>
+            <p class="mods-progress-text" id="modsProgressText" hidden>Синхронизация...</p>
+            <ul class="mods-list" id="modsSummary"></ul>
           </div>
         </section>
 
@@ -111,23 +114,18 @@
               <p class="section-title">Параметры запуска</p>
             </header>
             <div class="form-grid">
-              <div class="field select-field">
-                <label>Мин. память</label>
-                <select id="minMem">
-                  <option value="2G">2 ГБ</option>
-                  <option value="3G">3 ГБ</option>
-                  <option value="4G">4 ГБ</option>
-                </select>
-              </div>
-              <div class="field select-field">
-                <label>Макс. память</label>
-                <select id="maxMem">
-                  <option value="4G">4 ГБ</option>
-                  <option value="6G">6 ГБ</option>
-                  <option value="8G">8 ГБ</option>
-                </select>
+              <div class="field memory-field">
+                <label>Память для Minecraft</label>
+                <input type="range" id="memorySlider" min="3" max="8" step="0.5" value="4" />
+                <div class="memory-indicators">
+                  <span>Мин: <strong id="minMemLabel">2 ГБ</strong></span>
+                  <span>Макс: <strong id="maxMemLabel">4 ГБ</strong></span>
+                </div>
+                <p class="muted small">Ползунок учитывает доступную оперативную память.</p>
               </div>
             </div>
+            <input type="hidden" id="minMem" value="2G" />
+            <input type="hidden" id="maxMem" value="4G" />
             <div class="settings-actions">
               <button class="ghost danger settings-action" id="forceEngineBtn">
                 Переустановить компоненты лаунчера
@@ -191,6 +189,16 @@
       <div class="boot-overlay-content">
         <div class="boot-spinner"></div>
         <p id="bootOverlayText">Подготовка лаунчера...</p>
+      </div>
+    </div>
+    <div class="engine-modal" id="confirmModal">
+      <div class="engine-modal-content">
+        <h2 id="confirmTitle">Подтверждение</h2>
+        <p id="confirmMessage">Вы уверены?</p>
+        <div class="engine-modal-actions">
+          <button class="ghost secondary" id="confirmCancelBtn">Отмена</button>
+          <button class="primary danger" id="confirmOkBtn">Удалить</button>
+        </div>
       </div>
     </div>
     <script src="app.js"></script>

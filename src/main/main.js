@@ -1,5 +1,6 @@
 ﻿const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawnSync } = require('child_process');
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
@@ -7,7 +8,15 @@ const AdmZip = require('adm-zip');
 const fetch = require('node-fetch');
 
 const config = require('./config');
+const ensureDirSync = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
 config.appDataPath = config.appDataPath || app.getPath('appData');
+const runtimeRoot = path.join(config.appDataPath, 'LeoLauncher');
+  config.runtimeDir = path.join(runtimeRoot, 'runtime');
+  ensureDirSync(config.runtimeDir);
 const ModManager = require('./modManager');
 const ForgeManager = require('./forgeManager');
 const LauncherService = require('./launcherService');
@@ -78,6 +87,38 @@ const bootstrap = async () => {
   };
 
   const normalizeForwardSlashes = (value) => (value ? value.replace(/\\/g, '/') : value);
+
+  let bundledJavaCache = null;
+  const discoverBundledJavaExecutables = () => {
+    if (bundledJavaCache) {
+      return bundledJavaCache;
+    }
+    const results = [];
+    const runtimeDir = path.join(config.minecraftDir, 'runtime');
+    const searchQueue = [];
+    if (fs.existsSync(runtimeDir)) {
+      searchQueue.push(runtimeDir);
+    }
+    while (searchQueue.length) {
+      const current = searchQueue.pop();
+      let entries;
+      try {
+        entries = fs.readdirSync(current, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          searchQueue.push(fullPath);
+        } else if (/^javaw?\.exe$/i.test(entry.name)) {
+          results.push(fullPath);
+        }
+      }
+    }
+    bundledJavaCache = results;
+    return results;
+  };
 
   const renderConfigPlaceholders = (value) => {
     if (typeof value !== 'string') {
@@ -151,6 +192,9 @@ const bootstrap = async () => {
     if (config.java?.executable) {
       candidates.push(config.java.executable);
     }
+    discoverBundledJavaExecutables().forEach((candidatePath) => {
+      candidates.push(candidatePath);
+    });
     candidates.push('java');
     const uniqueCandidates = [...new Set(candidates.filter(Boolean))];
     let lastProbe = null;
@@ -331,6 +375,13 @@ const bootstrap = async () => {
     };
   });
 
+  ipcMain.handle('system:info', () => {
+    const toGb = (value) => Math.round((value / (1024 ** 3)) * 10) / 10;
+    const totalMemGB = os.totalmem ? toGb(os.totalmem()) : 0;
+    const freeMemGB = os.freemem ? toGb(os.freemem()) : 0;
+    return { totalMemGB, freeMemGB };
+  });
+
   ipcMain.handle('launcher:open-mods', async () => {
     const modsFolder = path.join(config.minecraftDir, 'mods');
     await shell.openPath(modsFolder);
@@ -346,6 +397,22 @@ const bootstrap = async () => {
     } catch (error) {
       console.error('Delete mod error:', error);
       sendLog(`Ошибка удаления мода: ${error.message}`);
+      return { ok: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('mods:install-one', async (_event, fileName) => {
+    try {
+      ensureEngineReadyForMods();
+      const statuses = await modManager.installMod(fileName, (payload) =>
+        mainWindow && mainWindow.webContents.send('mods:install-progress', payload)
+      );
+      modStatusesCache = statuses;
+      mainWindow && mainWindow.webContents.send('mods:status', statuses);
+      return { ok: true };
+    } catch (error) {
+      console.error('Install mod error:', error);
+      sendLog(`Ошибка установки мода: ${error.message}`);
       return { ok: false, error: error.message };
     }
   });

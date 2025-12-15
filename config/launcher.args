@@ -39,7 +39,7 @@ jdk.naming.dns/com.sun.jndi.dns=java.naming
 -Dminecraft.applet.TargetDirectory={minecraftDirForward}
 -DlibraryDirectory={minecraftDirForward}/libraries
 -Dcountry=RU
--Dlog4j.configurationFile={minecraftDirForward}/assets/log_configs/client-1.12.xml
+-Dlog4j.configurationFile=file:///{minecraftDirForward}/assets/log_configs/client-1.12.xml
 cpw.mods.bootstraplauncher.BootstrapLauncher
 --username
 {username}

@@ -11,6 +11,12 @@ domReady(async () => {
   const launchBtn = document.getElementById('launchBtn');
   const logView = document.getElementById('logView');
   const statusTag = document.getElementById('statusTag');
+  const statusTitle = document.getElementById('statusTitle');
+  const statusSubtitle = document.getElementById('statusSubtitle');
+  const statusMessage = document.getElementById('statusMessage');
+  if (statusMessage) {
+    statusMessage.textContent = '';
+  }
   const modsSummary = document.getElementById('modsSummary');
   const modsList = document.getElementById('modsList');
   const serverAddress = document.getElementById('serverAddress');
@@ -28,12 +34,24 @@ domReady(async () => {
   const cancelEngineBtn = document.getElementById('cancelEngineBtn');
   const deleteAllModsBtn = document.getElementById('deleteAllModsBtn');
   const reinstallModsBtn = document.getElementById('reinstallModsBtn');
+  const modsProgressText = document.getElementById('modsProgressText');
+  const memorySlider = document.getElementById('memorySlider');
+  const minMemInput = document.getElementById('minMem');
+  const maxMemInput = document.getElementById('maxMem');
+  const minMemLabel = document.getElementById('minMemLabel');
+  const maxMemLabel = document.getElementById('maxMemLabel');
   const javaModal = document.getElementById('javaModal');
   const javaDownloadBtn = document.getElementById('javaDownloadBtn');
   const javaDismissBtn = document.getElementById('javaDismissBtn');
   const usernameError = document.getElementById('usernameError');
   const bootOverlay = document.getElementById('bootOverlay');
   const bootOverlayText = document.getElementById('bootOverlayText');
+  const copyIpBtn = document.getElementById('copyIp');
+  const confirmModal = document.getElementById('confirmModal');
+  const confirmTitle = document.getElementById('confirmTitle');
+  const confirmMessage = document.getElementById('confirmMessage');
+  const confirmOkBtn = document.getElementById('confirmOkBtn');
+  const confirmCancelBtn = document.getElementById('confirmCancelBtn');
   const engineProgressViews = [
     {
       container: document.getElementById('engineProgressModal'),
@@ -49,9 +67,12 @@ domReady(async () => {
     }
   ];
   const modProgressState = new Map();
+  let repoProgressState = null;
   let currentModStatuses = [];
   let engineReinstallInProgress = false;
   let modsLoading = true;
+  let modsReinstalling = false;
+  let copyIpResetTimeout = null;
   const nicknamePattern = /^[A-Za-z_]+$/;
   let engineReady = true;
   let javaReady = true;
@@ -64,11 +85,119 @@ domReady(async () => {
       bootOverlayText.textContent = message;
     }
   };
+  let confirmResolver = null;
+  const openConfirmModal = ({
+    title = 'Подтверждение',
+    message = 'Вы уверены?',
+    confirmText = 'ОК'
+  } = {}) =>
+    new Promise((resolve) => {
+      confirmResolver = resolve;
+      if (confirmTitle) confirmTitle.textContent = title;
+      if (confirmMessage) confirmMessage.textContent = message;
+      if (confirmOkBtn) confirmOkBtn.textContent = confirmText;
+      confirmModal && confirmModal.classList.add('visible');
+    });
+
+  const closeConfirmModal = (result) => {
+    if (confirmModal) {
+      confirmModal.classList.remove('visible');
+    }
+    if (confirmResolver) {
+      confirmResolver(result);
+      confirmResolver = null;
+    }
+  };
 
   const hideBootOverlay = () => {
     if (bootOverlay) {
       bootOverlay.classList.remove('visible');
     }
+  };
+
+  const applyMemorySettings = (maxValue) => {
+    if (!minMemInput || !maxMemInput) return;
+    const sanitizedMax = Math.max(3, Number(maxValue) || 3);
+    const suggestedMin = Math.max(2, Math.min(sanitizedMax - 1, Math.round(sanitizedMax / 2)));
+    minMemInput.value = `${suggestedMin}G`;
+    maxMemInput.value = `${sanitizedMax}G`;
+    if (minMemLabel) {
+      minMemLabel.textContent = `${suggestedMin} ГБ`;
+    }
+    if (maxMemLabel) {
+      maxMemLabel.textContent = `${sanitizedMax} ГБ`;
+    }
+  };
+
+  const initMemorySlider = async () => {
+    if (!memorySlider) return;
+    let totalMem = 8;
+    try {
+      const info = await window.launcherApi.getSystemInfo();
+      if (info?.totalMemGB) {
+        totalMem = Math.max(info.totalMemGB, 4);
+      }
+    } catch {
+      // ignore
+    }
+    const safeTotal = Math.max(4, totalMem);
+    const maxSelectable = Math.max(4, Math.min(32, safeTotal - 2));
+    const recommendedBase =
+      safeTotal >= 16 ? 8 : Math.max(4, Math.round(maxSelectable * 0.6));
+    const recommended = Math.min(maxSelectable, recommendedBase);
+    memorySlider.min = 3;
+    memorySlider.max = maxSelectable;
+    memorySlider.step = 0.5;
+    memorySlider.value = recommended;
+    applyMemorySettings(recommended);
+    memorySlider.addEventListener('input', (event) => {
+      applyMemorySettings(Number(event.target.value));
+    });
+  };
+
+  const updateModsProgressText = () => {
+    if (!modsProgressText) return;
+    if (repoProgressState && repoProgressState.state !== 'done') {
+      const labels = {
+        download: 'Загрузка репозитория модов',
+        extract: 'Распаковка репозитория',
+        start: 'Подготовка репозитория'
+      };
+      const percentText =
+        typeof repoProgressState.percent === 'number'
+          ? `${Math.round(repoProgressState.percent)}%`
+          : '';
+      modsProgressText.hidden = false;
+      modsProgressText.innerHTML = `
+        <span class="progress-spinner" aria-hidden="true"></span>
+        <span>${labels[repoProgressState.state] || 'Подготовка модов'} ${
+          percentText ? `— ${percentText}` : ''
+        }</span>`;
+      return;
+    }
+    if (!modsReinstalling) {
+      modsProgressText.hidden = true;
+      modsProgressText.textContent = '';
+      return;
+    }
+    const total =
+      currentModStatuses.length || modProgressState.size || (modsLoading ? 0 : currentModStatuses.length);
+    const values = Array.from(modProgressState.values());
+    const completed = values.filter(
+      (item) => item && (item.state === 'done' || item.state === 'skipped')
+    ).length;
+    const installing = values.filter((item) => item && item.state === 'installing').length;
+    let message = 'Подготовка синхронизации модов...';
+    if (installing > 0 && total > 0) {
+      message = `Устанавливается ${installing} из ${total}`;
+    } else if (completed > 0 && total > 0) {
+      message = `Готово ${completed} из ${total}`;
+    }
+    if (total > 0 && completed === total) {
+      message = 'Моды синхронизированы';
+    }
+    modsProgressText.hidden = false;
+    modsProgressText.textContent = message;
   };
 
   const updateEngineProgress = ({ phase = 'download', percent = 0, active = false }) => {
@@ -160,30 +289,103 @@ domReady(async () => {
       if (progress.state === 'installing') {
         return 'Устанавливается...';
       }
+      if (progress.state === 'queued') {
+        return 'В очереди...';
+      }
+      if (progress.state === 'done') {
+        return 'Готово';
+      }
       if (progress.state === 'skipped') {
         return 'Пропущен';
+      }
+      if (progress.state === 'error') {
+        return 'Ошибка установки';
       }
     }
     return mod.installed ? 'Установлен' : 'Не найден';
   };
 
   const getModProgressMarkup = (progress) => {
-    if (!progress || progress.state !== 'installing') {
+    if (progress && progress.state === 'installing') {
+      return `
+        <div class="mod-progress loader">
+          <div class="loader-spinner"></div>
+          <p class="mod-progress-label">Установка...</p>
+        </div>`;
+    }
+    if (!progress || (progress.state !== 'queued' && progress.state !== 'done')) {
       return '';
     }
-    const percent = Math.min(100, Math.max(5, Math.round(progress.percent ?? 0)));
+    const percent = progress.state === 'done' ? 100 : 5;
     return `
       <div class="mod-progress">
         <div class="mod-progress-track">
           <div class="mod-progress-fill" style="width:${percent}%"></div>
         </div>
-        <p class="mod-progress-label">${percent}%</p>
+        <p class="mod-progress-label">${progress.state === 'done' ? '100%' : '0%'}</p>
       </div>`;
   };
 
   const showEngineModal = (visible) => {
     if (!engineModal) return;
     engineModal.classList.toggle('visible', visible);
+  };
+
+  const updateGlobalStatus = () => {
+    let state = {
+      level: 'ok',
+      title: 'Готов к запуску',
+      subtitle: 'Все системы готовы.',
+      pill: 'Готов'
+    };
+    if (!engineReady) {
+      state = {
+        level: 'error',
+        title: 'Нужна установка компонентов',
+        subtitle: 'Установите дополнительные файлы лаунчера.',
+        pill: 'Нет компонентов'
+      };
+    } else if (!javaReady) {
+      state = {
+        level: 'error',
+        title: 'Не найдена Java 17',
+        subtitle: 'Установите Java 17 и попробуйте снова.',
+        pill: 'Java'
+      };
+    } else if (modsLoading) {
+      state = {
+        level: 'warn',
+        title: 'Синхронизация модов',
+        subtitle: 'Загружаем моды из репозитория.',
+        pill: 'Синхронизация'
+      };
+    } else {
+      const missing = currentModStatuses.filter((mod) => !mod.installed);
+      if (missing.length) {
+        const missingName = missing[0]?.name || missing[0]?.fileName || 'мод';
+        state = {
+          level: 'warn',
+          title: 'Не все моды установлены',
+          subtitle: `Отсутствует ${
+            missing.length === 1 ? missingName : `${missing.length} мод(ов)`
+          }`,
+          pill: 'Моды'
+        };
+      }
+    }
+    if (statusTitle) {
+      statusTitle.textContent = state.title;
+    }
+    if (statusSubtitle) {
+      statusSubtitle.textContent = state.subtitle;
+    }
+    if (statusTag) {
+      statusTag.textContent = state.pill;
+      statusTag.classList.remove('status-ok', 'status-warn', 'status-error');
+      statusTag.classList.add(
+        state.level === 'error' ? 'status-error' : state.level === 'warn' ? 'status-warn' : 'status-ok'
+      );
+    }
   };
 
   const handleEngineStatus = (ready) => {
@@ -206,6 +408,7 @@ domReady(async () => {
       modsLoading = true;
       renderMods(currentModStatuses);
     }
+    updateGlobalStatus();
   };
 
   const showJavaModal = (visible) => {
@@ -224,6 +427,7 @@ domReady(async () => {
     } else {
       showJavaModal(true);
     }
+    updateGlobalStatus();
   };
 
   const switchPanel = (target) => {
@@ -272,6 +476,8 @@ domReady(async () => {
         modsList.innerHTML =
           '<li class="mod-item muted">Загружаем список модов. Это может занять пару минут при первом запуске.</li>';
       }
+      updateModsProgressText();
+      updateGlobalStatus();
       return;
     }
 
@@ -284,6 +490,7 @@ domReady(async () => {
         modsList.innerHTML =
           '<li class="mod-item muted">Нет доступных модов. Проверьте конфигурацию репозитория.</li>';
       }
+      updateGlobalStatus();
       return;
     }
 
@@ -292,9 +499,14 @@ domReady(async () => {
       const progress = modProgressState.get(fileName);
       const stateText = getModStateLabel(mod, progress);
       const progressMarkup = getModProgressMarkup(progress);
-      const actionMarkup = withActions
-        ? `<button class="ghost mini mod-delete" data-mod="${fileName}">Удалить</button>`
-        : '';
+      let actionMarkup = '';
+      if (withActions) {
+        if (mod.installed) {
+          actionMarkup = `<button class="ghost mini mod-delete" data-mod="${fileName}">Удалить</button>`;
+        } else {
+          actionMarkup = `<button class="ghost mini mod-install" data-mod="${fileName}">Установить</button>`;
+        }
+      }
       return `
         <li class="mod-item ${mod.installed ? 'installed' : 'missing'}">
           <span class="mod-dot ${mod.installed ? 'installed' : 'missing'}"></span>
@@ -313,6 +525,8 @@ domReady(async () => {
     if (modsList) {
       modsList.innerHTML = statuses.map((mod) => buildTemplate(mod, true)).join('');
     }
+    updateModsProgressText();
+    updateGlobalStatus();
   };
 
   setBootOverlayMessage('Подготовка лаунчера...');
@@ -325,6 +539,7 @@ domReady(async () => {
     return;
   }
   hideBootOverlay();
+  await initMemorySlider();
   if (config.lastUsername) {
     usernameInput.value = config.lastUsername;
   }
@@ -335,10 +550,31 @@ domReady(async () => {
   javaDownloadUrl = config.javaDownloadUrl || defaultJavaDownloadUrl;
   handleJavaStatus({ ready: Boolean(config.javaReady), downloadUrl: javaDownloadUrl });
 
-  document.getElementById('copyIp').addEventListener('click', async () => {
-    await navigator.clipboard.writeText(`${config.server.address}:${config.server.port}`);
-    setStatus('IP скопирован');
-  });
+  if (copyIpBtn) {
+    const defaultCopyLabel = copyIpBtn.textContent;
+    copyIpBtn.addEventListener('click', async () => {
+      if (!navigator.clipboard) {
+        setStatus('Буфер обмена недоступен');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(`${config.server.address}:${config.server.port}`);
+        setStatus('IP скопирован');
+        copyIpBtn.textContent = 'Скопировано!';
+        copyIpBtn.classList.add('copied');
+        if (copyIpResetTimeout) {
+          clearTimeout(copyIpResetTimeout);
+        }
+        copyIpResetTimeout = window.setTimeout(() => {
+          copyIpBtn.textContent = defaultCopyLabel;
+          copyIpBtn.classList.remove('copied');
+        }, 1600);
+      } catch (error) {
+        console.error('Clipboard error', error);
+        setStatus('Не удалось скопировать IP');
+      }
+    });
+  }
 
   document.getElementById('openMods').addEventListener('click', () => {
     window.launcherApi.openMods();
@@ -364,12 +600,17 @@ domReady(async () => {
       return;
     }
     modsLoading = false;
+    modsReinstalling = false;
     modProgressState.clear();
+    repoProgressState = null;
     renderMods(statuses);
+    setModActionsDisabled(false);
+    updateModsProgressText();
   });
 
   const setStatus = (text) => {
-    statusTag.textContent = text;
+    if (!statusMessage) return;
+    statusMessage.textContent = text || '';
   };
 
   const showUsernameError = (message) => {
@@ -423,12 +664,22 @@ domReady(async () => {
     engineExitBtn.addEventListener('click', () => window.launcherApi.close());
   }
 
+  if (confirmCancelBtn) {
+    confirmCancelBtn.addEventListener('click', () => closeConfirmModal(false));
+  }
+  if (confirmOkBtn) {
+    confirmOkBtn.addEventListener('click', () => closeConfirmModal(true));
+  }
+
   if (forceEngineBtn) {
     forceEngineBtn.addEventListener('click', async () => {
       if (forceEngineBtn.disabled) return;
-      const confirmed = window.confirm(
-        'Переустановить компоненты лаунчера? Текущие файлы Minecraft могут быть перезаписаны.'
-      );
+      const confirmed = await openConfirmModal({
+        title: 'Переустановить компоненты?',
+        message:
+          'Текущие файлы Minecraft могут быть перезаписаны. Продолжить установку компонентов лаунчера?',
+        confirmText: 'Переустановить'
+      });
       if (!confirmed) {
         return;
       }
@@ -485,7 +736,15 @@ domReady(async () => {
     reinstallModsBtn.addEventListener('click', async () => {
       if (reinstallModsBtn.disabled) return;
       setModActionsDisabled(true);
+      modsReinstalling = true;
       modProgressState.clear();
+      if (currentModStatuses.length) {
+        currentModStatuses.forEach((mod) => {
+          const key = mod.fileName || mod.name;
+          modProgressState.set(key, { state: 'installing', percent: 0 });
+        });
+      }
+      updateModsProgressText();
       renderMods(currentModStatuses);
       appendLog('Переустановка всех модов...');
       try {
@@ -493,6 +752,9 @@ domReady(async () => {
         if (!result.ok) {
           appendLog(`Ошибка переустановки модов: ${result.error || 'неизвестно'}`);
           setStatus('Ошибка установки модов');
+          modsReinstalling = false;
+          updateModsProgressText();
+          setModActionsDisabled(false);
         } else {
           appendLog('Моды переустановлены.');
           setStatus('Моды обновлены');
@@ -500,7 +762,8 @@ domReady(async () => {
       } catch (error) {
         appendLog(`Ошибка переустановки модов: ${error.message}`);
         setStatus('Ошибка установки модов');
-      } finally {
+        modsReinstalling = false;
+        updateModsProgressText();
         setModActionsDisabled(false);
       }
     });
@@ -509,7 +772,11 @@ domReady(async () => {
   if (deleteAllModsBtn) {
     deleteAllModsBtn.addEventListener('click', async () => {
       if (deleteAllModsBtn.disabled) return;
-      const confirmed = window.confirm('Удалить все моды? Это действие нельзя отменить.');
+      const confirmed = await openConfirmModal({
+        title: 'Удаление модов',
+        message: 'Удалить все моды? Это действие нельзя отменить.',
+        confirmText: 'Удалить'
+      });
       if (!confirmed) return;
       setModActionsDisabled(true);
       appendLog('Удаление всех модов...');
@@ -533,25 +800,55 @@ domReady(async () => {
 
   if (modsList) {
     modsList.addEventListener('click', async (event) => {
-      const button = event.target.closest('.mod-delete');
-      if (!button) return;
-      if (button.disabled) return;
-      const fileName = button.dataset.mod;
-      appendLog(`Удаление мода ${fileName}...`);
-      button.disabled = true;
-      try {
-        const result = await window.launcherApi.deleteMod(fileName);
-        if (!result.ok) {
-          appendLog(`Ошибка удаления мода ${fileName}: ${result.error || 'неизвестно'}`);
+      const deleteBtn = event.target.closest('.mod-delete');
+      if (deleteBtn) {
+        if (deleteBtn.disabled) return;
+        const fileName = deleteBtn.dataset.mod;
+        appendLog(`Удаление мода ${fileName}...`);
+        deleteBtn.disabled = true;
+        try {
+          const result = await window.launcherApi.deleteMod(fileName);
+          if (!result.ok) {
+            appendLog(`Ошибка удаления мода ${fileName}: ${result.error || 'неизвестно'}`);
+            setStatus('Ошибка удаления мода');
+          } else {
+            appendLog(`Мод ${fileName} удалён.`);
+          }
+        } catch (error) {
+          appendLog(`Ошибка удаления мода ${fileName}: ${error.message}`);
           setStatus('Ошибка удаления мода');
-        } else {
-          appendLog(`Мод ${fileName} удалён.`);
+        } finally {
+          deleteBtn.disabled = false;
         }
-      } catch (error) {
-        appendLog(`Ошибка удаления мода ${fileName}: ${error.message}`);
-        setStatus('Ошибка удаления мода');
-      } finally {
-        button.disabled = false;
+        return;
+      }
+
+      const installBtn = event.target.closest('.mod-install');
+      if (installBtn) {
+        if (installBtn.disabled) return;
+        const fileName = installBtn.dataset.mod;
+        appendLog(`Установка мода ${fileName}...`);
+        installBtn.disabled = true;
+        modProgressState.set(fileName, { state: 'installing', percent: 0 });
+        renderMods(currentModStatuses);
+        try {
+          const result = await window.launcherApi.installMod(fileName);
+          if (!result.ok) {
+            appendLog(`Ошибка установки мода ${fileName}: ${result.error || 'неизвестно'}`);
+            setStatus('Ошибка установки мода');
+            modProgressState.set(fileName, { state: 'error', percent: 0 });
+            renderMods(currentModStatuses);
+          } else {
+            setStatus('Мод установлен');
+          }
+        } catch (error) {
+          appendLog(`Ошибка установки мода ${fileName}: ${error.message}`);
+          setStatus('Ошибка установки мода');
+          modProgressState.set(fileName, { state: 'error', percent: 0 });
+          renderMods(currentModStatuses);
+        } finally {
+          installBtn.disabled = false;
+        }
       }
     });
   }
@@ -570,13 +867,27 @@ domReady(async () => {
   });
 
   window.launcherApi.onModsInstallProgress((payload) => {
-    if (!payload || !payload.fileName) return;
-    if (payload.state === 'done' || payload.state === 'skipped' || payload.state === 'error') {
-      modProgressState.delete(payload.fileName);
+    if (!payload) return;
+    if (payload.scope === 'repo') {
+      if (payload.state === 'done') {
+        repoProgressState = null;
+      } else {
+        repoProgressState = payload;
+      }
+      updateModsProgressText();
+      return;
+    }
+    if (!payload.fileName) return;
+    const state = payload.state;
+    if (state === 'done' || state === 'skipped') {
+      modProgressState.set(payload.fileName, { state, percent: 100 });
+    } else if (state === 'error') {
+      modProgressState.set(payload.fileName, { state: 'error', percent: payload.percent || 0 });
     } else {
       modProgressState.set(payload.fileName, payload);
     }
     renderMods(currentModStatuses);
+    updateModsProgressText();
   });
 
   launchBtn.addEventListener('click', async () => {

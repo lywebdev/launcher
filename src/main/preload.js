@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('launcherApi', {
   getConfig: () => ipcRenderer.invoke('launcher:get-config'),
+  getSystemInfo: () => ipcRenderer.invoke('system:info'),
   launch: (payload) => ipcRenderer.invoke('launcher:launch', payload),
   openMods: () => ipcRenderer.invoke('launcher:open-mods'),
   installEngine: () => ipcRenderer.invoke('engine:install'),
@@ -9,6 +10,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   reinstallMods: () => ipcRenderer.invoke('mods:reinstall-all'),
   deleteAllMods: () => ipcRenderer.invoke('mods:delete-all'),
   deleteMod: (fileName) => ipcRenderer.invoke('mods:delete', fileName),
+  installMod: (fileName) => ipcRenderer.invoke('mods:install-one', fileName),
   openExternal: (url) => ipcRenderer.invoke('app:open-url', url),
   onLog: (callback) => {
     ipcRenderer.on('launcher:log', (_event, message) => callback(message));

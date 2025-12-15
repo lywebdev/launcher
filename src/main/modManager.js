@@ -1,11 +1,47 @@
 ﻿const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const { pipeline } = require('stream/promises');
 const AdmZip = require('adm-zip');
+const { pipeline } = require('stream/promises');
 
 const ensureDir = async (dir) => fs.promises.mkdir(dir, { recursive: true });
 const fileExists = async (p) => !!(await fs.promises.stat(p).catch(() => null));
+
+const copyWithProgress = async (source, destination, onProgress) => {
+  const stat = await fs.promises.stat(source);
+  const totalBytes = stat.size || 0;
+  await ensureDir(path.dirname(destination));
+  return new Promise((resolve, reject) => {
+    let transferred = 0;
+    const readStream = fs.createReadStream(source);
+    const writeStream = fs.createWriteStream(destination);
+
+    const report = () => {
+      if (typeof onProgress === 'function' && totalBytes > 0) {
+        const percent = Math.min(100, (transferred / totalBytes) * 100);
+        onProgress(percent);
+      }
+    };
+
+    readStream.on('data', (chunk) => {
+      transferred += chunk.length;
+      report();
+    });
+    readStream.on('error', (err) => {
+      writeStream.destroy();
+      reject(err);
+    });
+    writeStream.on('error', (err) => {
+      readStream.destroy();
+      reject(err);
+    });
+    writeStream.on('finish', () => {
+      report();
+      resolve();
+    });
+    readStream.pipe(writeStream);
+  });
+};
 
 class ModManager {
   constructor(minecraftDir, runtimeDir, repoConfig = {}) {
@@ -37,7 +73,14 @@ class ModManager {
     const { force = false, onProgress } = options;
     const modsFolder = path.join(this.minecraftDir, 'mods');
     await ensureDir(modsFolder);
-    const mods = await this._getRepoMods(force);
+    const mods = await this._getRepoMods(force, (repoPayload) => {
+      onProgress &&
+        onProgress({
+          scope: 'repo',
+          ...repoPayload
+        });
+    });
+    onProgress && onProgress({ scope: 'repo', state: 'done', percent: 100 });
     const statuses = [];
 
     for (const mod of mods) {
@@ -47,8 +90,15 @@ class ModManager {
       if (needsCopy) {
         onProgress &&
           onProgress({ fileName: mod.fileName, name: mod.name, state: 'installing', percent: 0 });
-        await ensureDir(path.dirname(destination));
-        await fs.promises.copyFile(mod.sourcePath, destination);
+        await copyWithProgress(mod.sourcePath, destination, (percent) =>
+          onProgress &&
+          onProgress({
+            fileName: mod.fileName,
+            name: mod.name,
+            state: 'installing',
+            percent
+          })
+        );
         onProgress &&
           onProgress({ fileName: mod.fileName, name: mod.name, state: 'done', percent: 100 });
       } else {
@@ -60,6 +110,35 @@ class ModManager {
     }
 
     return statuses;
+  }
+
+  async installMod(fileName, onProgress) {
+    if (!fileName) {
+      throw new Error('Не указан мод');
+    }
+    await this.ensureRepoReady();
+    const mods = await this._getRepoMods();
+    const targetMod = mods.find((mod) => mod.fileName === fileName);
+    if (!targetMod) {
+      throw new Error('Мод не найден в репозитории');
+    }
+    const modsFolder = path.join(this.minecraftDir, 'mods');
+    await ensureDir(modsFolder);
+    const destination = path.join(modsFolder, targetMod.fileName);
+    onProgress &&
+      onProgress({ fileName: targetMod.fileName, name: targetMod.name, state: 'installing', percent: 0 });
+    await copyWithProgress(targetMod.sourcePath, destination, (percent) => {
+      onProgress &&
+        onProgress({
+          fileName: targetMod.fileName,
+          name: targetMod.name,
+          state: 'installing',
+          percent
+        });
+    });
+    onProgress &&
+      onProgress({ fileName: targetMod.fileName, name: targetMod.name, state: 'done', percent: 100 });
+    return this.getStatuses();
   }
 
   async deleteMod(fileName) {
@@ -90,8 +169,8 @@ class ModManager {
     return this.getStatuses();
   }
 
-  async _getRepoMods(forceRefresh = false) {
-    await this.ensureRepoReady(forceRefresh);
+  async _getRepoMods(forceRefresh = false, onRepoProgress) {
+    await this.ensureRepoReady(forceRefresh, onRepoProgress);
     if (this.repoModsCache) {
       return this.repoModsCache;
     }
@@ -121,7 +200,7 @@ class ModManager {
     }
   }
 
-  async ensureRepoReady(forceRefresh = false) {
+  async ensureRepoReady(forceRefresh = false, onRepoProgress) {
     if (!this.repoConfig.zipUrl) {
       throw new Error('modsRepo.zipUrl не настроен');
     }
@@ -133,7 +212,7 @@ class ModManager {
       (await this._needsRepoUpdate());
 
     if (needsUpdate) {
-      await this._refreshRepo(expectedRoot);
+      await this._refreshRepo(expectedRoot, onRepoProgress);
       this.repoModsCache = null;
     } else {
       this.repoRoot = expectedRoot;
@@ -142,13 +221,23 @@ class ModManager {
     return this.repoRoot;
   }
 
-  async _refreshRepo(expectedRoot) {
+  async _refreshRepo(expectedRoot, onRepoProgress) {
     await fs.promises.rm(this.repoFolder, { recursive: true, force: true }).catch(() => {});
     await ensureDir(this.repoFolder);
     const zipPath = path.join(this.repoFolder, 'repo.zip');
-    const headers = await this._download(this.repoConfig.zipUrl, zipPath);
-    const zip = new AdmZip(zipPath);
-    zip.extractAllTo(this.repoFolder, false);
+    const headers = await this._download(this.repoConfig.zipUrl, zipPath, (downloaded, total) =>
+      onRepoProgress &&
+      onRepoProgress({
+        state: 'download',
+        percent: total ? Math.min(100, (downloaded / total) * 100) : 0
+      })
+    );
+    await this._extractZipWithProgress(zipPath, this.repoFolder, (current, total) => {
+      if (onRepoProgress) {
+        const percent = total ? Math.min(100, (current / total) * 100) : 0;
+        onRepoProgress({ state: 'extract', percent });
+      }
+    });
     await fs.promises.unlink(zipPath).catch(() => {});
 
     if (this.repoConfig.subfolder) {
@@ -237,17 +326,51 @@ class ModManager {
     );
   }
 
-  async _download(url, destination) {
+  async _download(url, destination, onChunk) {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Ошибка загрузки ${url}: ${response.status}`);
     }
-    await pipeline(response.body, fs.createWriteStream(destination));
+    await new Promise((resolve, reject) => {
+      const fileStream = fs.createWriteStream(destination);
+      let downloaded = 0;
+      response.body.on('data', (chunk) => {
+        downloaded += chunk.length;
+        onChunk && onChunk(downloaded, Number(response.headers.get('content-length') || 0));
+      });
+      response.body.on('error', (error) => {
+        fileStream.destroy();
+        reject(error);
+      });
+      fileStream.on('finish', resolve);
+      response.body.pipe(fileStream);
+    });
     return {
       etag: response.headers.get('etag'),
       lastModified: response.headers.get('last-modified'),
       contentLength: response.headers.get('content-length')
     };
+  }
+
+  async _extractZipWithProgress(zipPath, outputDir, onProgress) {
+    const zip = new AdmZip(zipPath);
+    const entries = zip.getEntries();
+    const total = entries.length || 1;
+    let processed = 0;
+    for (const entry of entries) {
+      const entryPath = path.join(outputDir, entry.entryName);
+      if (entry.isDirectory) {
+        await ensureDir(entryPath).catch(() => {});
+      } else {
+        await ensureDir(path.dirname(entryPath));
+        await fs.promises.writeFile(entryPath, entry.getData());
+      }
+      processed += 1;
+      if (onProgress) {
+        onProgress(processed, total);
+      }
+    }
+    return total;
   }
 }
 
