@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('launcherApi', {
   onModsInstallProgress: (callback) => {
     ipcRenderer.on('mods:install-progress', (_event, payload) => callback(payload));
   },
+  onUpdaterStatus: (callback) => {
+    ipcRenderer.on('updater:status', (_event, payload) => callback(payload));
+  },
   toggleFullscreen: () => ipcRenderer.invoke('window:toggle-fullscreen'),
   getWindowState: () => ipcRenderer.invoke('window:get-state'),
   onFullscreenChange: (callback) => {

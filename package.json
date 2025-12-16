@@ -1,6 +1,6 @@
 {
   "name": "majestic-launcher",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "Custom Minecraft 1.20.1 Forge launcher with auto mod sync",
   "main": "src/main/main.js",
   "scripts": {

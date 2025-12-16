@@ -100,6 +100,11 @@ const bootstrap = async () => {
     mainWindow && mainWindow.webContents.send('launcher:log', message);
   };
 
+  const emitUpdaterStatus = (payload) => {
+    if (!mainWindow || !payload) return;
+    mainWindow.webContents.send('updater:status', payload);
+  };
+
   const emitEngineProgress = (payload) => {
     if (mainWindow) {
       mainWindow.webContents.send('engine:install-progress', payload);
@@ -213,21 +218,39 @@ const bootstrap = async () => {
     }
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
-    autoUpdater.on('checking-for-update', () => sendLog('Проверяем обновления лаунчера...'));
-    autoUpdater.on('update-available', () =>
-      sendLog('Найдена новая версия лаунчера. Скачиваем обновление...')
-    );
-    autoUpdater.on('download-progress', (progress) => {
-      sendLog(`Обновление лаунчера: ${Math.round(progress.percent)}%`);
+    autoUpdater.on('checking-for-update', () => {
+      sendLog('Проверяем обновления лаунчера...');
+      emitUpdaterStatus({ state: 'checking', message: 'Проверка обновлений...' });
     });
-    autoUpdater.on('update-not-available', () => sendLog('Используется актуальная версия лаунчера.'));
+    autoUpdater.on('update-available', () => {
+      sendLog('Найдена новая версия лаунчера. Скачиваем обновление...');
+      emitUpdaterStatus({ state: 'downloading', message: 'Скачиваем обновление...' });
+    });
+    autoUpdater.on('download-progress', (progress) => {
+      const percent = Math.round(progress.percent);
+      sendLog(`Обновление лаунчера: ${percent}%`);
+      emitUpdaterStatus({
+        state: 'downloading',
+        message: `Скачиваем обновление... ${percent}%`,
+        progress: percent
+      });
+    });
+    autoUpdater.on('update-not-available', () => {
+      sendLog('Используется актуальная версия лаунчера.');
+      emitUpdaterStatus({ state: 'idle' });
+    });
     autoUpdater.on('update-downloaded', () => {
       sendLog('Обновление скачано. Перезапуск для установки...');
+      emitUpdaterStatus({ state: 'installing', message: 'Устанавливаем обновление...' });
       autoUpdater.quitAndInstall(true, true);
     });
-    autoUpdater.on('error', (err) => sendLog(`Ошибка обновления лаунчера: ${err.message}`));
+    autoUpdater.on('error', (err) => {
+      sendLog(`Ошибка обновления лаунчера: ${err.message}`);
+      emitUpdaterStatus({ state: 'error', message: 'Ошибка проверки обновлений' });
+    });
     autoUpdater.checkForUpdates().catch((error) => {
       sendLog(`Ошибка проверки обновлений: ${error.message}`);
+      emitUpdaterStatus({ state: 'error', message: 'Ошибка проверки обновлений' });
     });
   };
 

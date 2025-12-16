@@ -44,6 +44,8 @@ domReady(async () => {
   const usernameError = document.getElementById('usernameError');
   const bootOverlay = document.getElementById('bootOverlay');
   const bootOverlayText = document.getElementById('bootOverlayText');
+  const updateOverlay = document.getElementById('updateOverlay');
+  const updateOverlayText = document.getElementById('updateOverlayText');
   const copyIpBtn = document.getElementById('copyIp');
   const confirmModal = document.getElementById('confirmModal');
   const confirmTitle = document.getElementById('confirmTitle');
@@ -82,6 +84,15 @@ domReady(async () => {
       bootOverlayText.textContent = message;
     }
   };
+
+  const toggleUpdateOverlay = (visible, message) => {
+    if (!updateOverlay) return;
+    if (message && updateOverlayText) {
+      updateOverlayText.textContent = message;
+    }
+    updateOverlay.classList.toggle('visible', Boolean(visible));
+  };
+
   let confirmResolver = null;
   const openConfirmModal = ({
     title = 'Подтверждение',
@@ -622,6 +633,21 @@ domReady(async () => {
   };
 
   window.launcherApi.onLog((message) => appendLog(message));
+  window.launcherApi.onUpdaterStatus((payload) => {
+    if (!payload) {
+      toggleUpdateOverlay(false);
+      return;
+    }
+    const { state, message } = payload;
+    if (['checking', 'downloading', 'installing'].includes(state)) {
+      toggleUpdateOverlay(true, message || 'Проверка обновлений...');
+      return;
+    }
+    toggleUpdateOverlay(false);
+    if (state === 'error' && message) {
+      setStatus(message);
+    }
+  });
   window.launcherApi.onModsStatus((statuses) => {
     if (!engineReady && !statuses.length) {
       modsLoading = true;
