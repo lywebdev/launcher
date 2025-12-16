@@ -1,7 +1,6 @@
 ﻿const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawnSync } = require('child_process');
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const AdmZip = require('adm-zip');
@@ -39,8 +38,11 @@ const bootstrap = async () => {
     const win = new BrowserWindow({
       width: 1100,
       height: 700,
+      minWidth: 960,
+      minHeight: 600,
       frame: false,
-      resizable: false,
+      resizable: true,
+      fullscreenable: true,
       show: false,
       backgroundColor: '#080808',
       icon: path.join(__dirname, '..', '..', 'build', 'icon.ico'),
@@ -53,6 +55,12 @@ const bootstrap = async () => {
     });
 
     win.once('ready-to-show', () => win.show());
+    win.on('enter-full-screen', () => {
+      win.webContents.send('window:fullscreen', { fullScreen: true });
+    });
+    win.on('leave-full-screen', () => {
+      win.webContents.send('window:fullscreen', { fullScreen: false });
+    });
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
     return win;
   };
@@ -75,162 +83,6 @@ const bootstrap = async () => {
     if (mainWindow) {
       mainWindow.webContents.send('engine:install-progress', payload);
     }
-  };
-
-  const parseJavaMajor = (versionString = '') => {
-    if (!versionString) {
-      return null;
-    }
-    const parts = versionString.split('.');
-    if (parts[0] === '1' && parts.length > 1) {
-      return parseInt(parts[1], 10);
-    }
-    return parseInt(parts[0], 10);
-  };
-
-  const normalizeForwardSlashes = (value) => (value ? value.replace(/\\/g, '/') : value);
-
-  let bundledJavaCache = null;
-  const discoverBundledJavaExecutables = () => {
-    if (bundledJavaCache) {
-      return bundledJavaCache;
-    }
-    const results = [];
-    const runtimeDir = path.join(config.minecraftDir, 'runtime');
-    const searchQueue = [];
-    if (fs.existsSync(runtimeDir)) {
-      searchQueue.push(runtimeDir);
-    }
-    while (searchQueue.length) {
-      const current = searchQueue.pop();
-      let entries;
-      try {
-        entries = fs.readdirSync(current, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const entry of entries) {
-        const fullPath = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          searchQueue.push(fullPath);
-        } else if (/^javaw?\.exe$/i.test(entry.name)) {
-          results.push(fullPath);
-        }
-      }
-    }
-    bundledJavaCache = results;
-    return results;
-  };
-
-  const renderConfigPlaceholders = (value) => {
-    if (typeof value !== 'string') {
-      return value;
-    }
-    const appDataDir = config.appDataPath || app.getPath('appData');
-    const replacements = {
-      minecraftDir: config.minecraftDir,
-      minecraftDirForward: normalizeForwardSlashes(config.minecraftDir || ''),
-      appData: appDataDir,
-      appDataForward: normalizeForwardSlashes(appDataDir || '')
-    };
-    return value.replace(/\{(\w+)\}/g, (_, key) => replacements[key] ?? '');
-  };
-
-  const resolveCustomCommandJavaPath = () => {
-    const custom = config.customLaunch || {};
-    if (custom.javaPath) {
-      const renderedPath = renderConfigPlaceholders(custom.javaPath).trim();
-      return renderedPath || null;
-    }
-    if (custom.command) {
-      const renderedCommand = renderConfigPlaceholders(custom.command).trim();
-      if (!renderedCommand) {
-        return null;
-      }
-      if (renderedCommand.startsWith('"')) {
-        const closing = renderedCommand.indexOf('"', 1);
-        if (closing > 1) {
-          return renderedCommand.slice(1, closing);
-        }
-      }
-      const [firstToken] = renderedCommand.split(/\s+/);
-      return firstToken;
-    }
-    return null;
-  };
-
-  const probeJavaExecutable = (execPath) => {
-    if (!execPath) {
-      return null;
-    }
-    try {
-      if (path.isAbsolute(execPath) && !fs.existsSync(execPath)) {
-        return null;
-      }
-      const result = spawnSync(execPath, ['-version'], {
-        encoding: 'utf-8',
-        windowsHide: true
-      });
-      if (result.error || result.status !== 0) {
-        return null;
-      }
-      const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-      const versionMatch = output.match(/version\s+"([^"]+)"/i);
-      const version = versionMatch ? versionMatch[1] : '';
-      const major = parseJavaMajor(version);
-      const ready = typeof major === 'number' && major >= 17;
-      return { ready, execPath, version };
-    } catch {
-      return null;
-    }
-  };
-
-  const checkJavaAvailability = () => {
-    const candidates = [];
-    const customPath = resolveCustomCommandJavaPath();
-    if (customPath) {
-      candidates.push(customPath);
-    }
-    if (config.java?.executable) {
-      candidates.push(config.java.executable);
-    }
-    discoverBundledJavaExecutables().forEach((candidatePath) => {
-      candidates.push(candidatePath);
-    });
-    candidates.push('java');
-    const uniqueCandidates = [...new Set(candidates.filter(Boolean))];
-    let lastProbe = null;
-    for (const candidate of uniqueCandidates) {
-      const probe = probeJavaExecutable(candidate);
-      if (probe && probe.ready) {
-        return { ready: true, path: probe.execPath, version: probe.version };
-      }
-      if (probe) {
-        lastProbe = probe;
-      }
-    }
-    if (lastProbe) {
-      return { ready: false, path: lastProbe.execPath, version: lastProbe.version };
-    }
-    return { ready: false };
-  };
-
-  const getJavaStatusPayload = () => {
-    const status = checkJavaAvailability();
-    return {
-      ready: Boolean(status.ready),
-      version: status.version || '',
-      path: status.path || '',
-      downloadUrl: javaDownloadUrl
-    };
-  };
-
-  const sendJavaStatus = () => {
-    const payload = getJavaStatusPayload();
-    if (mainWindow) {
-      mainWindow.webContents.send('java:status', payload);
-    }
-    return payload;
   };
 
   const broadcastModsStatus = async () => {
@@ -355,7 +207,6 @@ const bootstrap = async () => {
     mainWindow.webContents.on('did-finish-load', () => {
       mainWindow.webContents.send('engine:status', { ready: isEngineReady() });
       ensureServerEntryIfReady();
-      sendJavaStatus();
       broadcastModsStatus().catch((error) =>
         sendLog(`Ошибка синхронизации модов: ${error.message || error}`)
       );
@@ -375,7 +226,6 @@ const bootstrap = async () => {
   });
 
   ipcMain.handle('launcher:get-config', async () => {
-    const javaStatus = getJavaStatusPayload();
     return {
       server: config.server,
       forge: config.forge,
@@ -384,9 +234,7 @@ const bootstrap = async () => {
       lastMemory: store.get('lastMemory', null),
       status: modStatusesCache,
       engineReady: isEngineReady(),
-      javaReady: javaStatus.ready,
-      javaDownloadUrl: javaStatus.downloadUrl,
-      javaVersion: javaStatus.version
+      javaDownloadUrl
     };
   });
 
@@ -523,6 +371,23 @@ const bootstrap = async () => {
     }
   });
 
+  ipcMain.handle('window:toggle-fullscreen', () => {
+    if (!mainWindow) {
+      return { ok: false, error: 'Окно недоступно' };
+    }
+    const targetState = !mainWindow.isFullScreen();
+    mainWindow.setFullScreen(targetState);
+    mainWindow.webContents.send('window:fullscreen', { fullScreen: targetState });
+    return { ok: true, fullScreen: targetState };
+  });
+
+  ipcMain.handle('window:get-state', () => {
+    if (!mainWindow) {
+      return { ok: false, fullScreen: false };
+    }
+    return { ok: true, fullScreen: mainWindow.isFullScreen() };
+  });
+
   ipcMain.handle('window:close', () => {
     if (process.platform === 'darwin') {
       app.hide();
@@ -538,17 +403,6 @@ const bootstrap = async () => {
       if (!isEngineReady()) {
         pushLog('Ошибка: компоненты лаунчера не установлены.');
         return { ok: false, error: 'Компоненты лаунчера не установлены' };
-      }
-      const javaStatus = checkJavaAvailability();
-      if (!javaStatus.ready) {
-        pushLog('Ошибка: Java 17 не найдена.');
-        sendJavaStatus();
-        return {
-          ok: false,
-          error: 'JAVA_MISSING',
-          javaMissing: true,
-          downloadUrl: javaDownloadUrl
-        };
       }
       store.set('lastUsername', payload.username);
       if (payload.minMemory && payload.maxMemory) {

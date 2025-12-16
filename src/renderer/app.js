@@ -40,9 +40,6 @@ domReady(async () => {
   const maxMemInput = document.getElementById('maxMem');
   const minMemLabel = document.getElementById('minMemLabel');
   const maxMemLabel = document.getElementById('maxMemLabel');
-  const javaModal = document.getElementById('javaModal');
-  const javaDownloadBtn = document.getElementById('javaDownloadBtn');
-  const javaDismissBtn = document.getElementById('javaDismissBtn');
   const usernameError = document.getElementById('usernameError');
   const bootOverlay = document.getElementById('bootOverlay');
   const bootOverlayText = document.getElementById('bootOverlayText');
@@ -52,6 +49,12 @@ domReady(async () => {
   const confirmMessage = document.getElementById('confirmMessage');
   const confirmOkBtn = document.getElementById('confirmOkBtn');
   const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+  const syncIndicator = document.getElementById('syncIndicator');
+  const syncIndicatorText = document.getElementById('syncIndicatorText');
+  const infoTrigger = document.getElementById('infoTrigger');
+  const infoModal = document.getElementById('infoModal');
+  const infoCloseBtn = document.getElementById('infoCloseBtn');
+  const infoJavaBtn = document.getElementById('infoJavaBtn');
   const engineProgressViews = [
     {
       container: document.getElementById('engineProgressModal'),
@@ -69,7 +72,6 @@ domReady(async () => {
   let copyIpResetTimeout = null;
   const nicknamePattern = /^[A-Za-z_]+$/;
   let engineReady = true;
-  let javaReady = true;
   let javaDownloadUrl = '';
   const defaultJavaDownloadUrl =
     'https://www.oracle.com/java/technologies/downloads/#jdk17-windows';
@@ -101,6 +103,42 @@ domReady(async () => {
       confirmResolver(result);
       confirmResolver = null;
     }
+  };
+
+  const refreshSyncIndicator = () => {
+    if (!syncIndicator) return;
+    const repoActive = repoProgressState && repoProgressState.state !== 'done';
+    const active = modsLoading || modsReinstalling || repoActive;
+    if (!active) {
+      syncIndicator.hidden = true;
+      return;
+    }
+    let message = 'Синхронизация модов...';
+    if (repoActive) {
+      const repoLabels = {
+        download: 'Загрузка модов',
+        extract: 'Распаковка модов',
+        start: 'Подготовка синхронизации'
+      };
+      const percentText =
+        typeof repoProgressState.percent === 'number'
+          ? ` — ${Math.round(repoProgressState.percent)}%`
+          : '';
+      message = `${repoLabels[repoProgressState.state] || 'Синхронизация модов'}${percentText}`;
+    } else if (modsReinstalling) {
+      message = 'Переустановка модов...';
+    } else if (modsLoading) {
+      message = 'Синхронизация модов...';
+    }
+    if (syncIndicatorText) {
+      syncIndicatorText.textContent = message;
+    }
+    syncIndicator.hidden = false;
+  };
+
+  const toggleInfoModal = (visible) => {
+    if (!infoModal) return;
+    infoModal.classList.toggle('visible', visible);
   };
 
   const hideBootOverlay = () => {
@@ -166,7 +204,10 @@ domReady(async () => {
   };
 
   const updateModsProgressText = () => {
-    if (!modsProgressText) return;
+    if (!modsProgressText) {
+      refreshSyncIndicator();
+      return;
+    }
     if (repoProgressState && repoProgressState.state !== 'done') {
       const labels = {
         download: 'Загрузка репозитория модов',
@@ -181,13 +222,15 @@ domReady(async () => {
       modsProgressText.innerHTML = `
         <span class="progress-spinner" aria-hidden="true"></span>
         <span>${labels[repoProgressState.state] || 'Подготовка модов'} ${
-          percentText ? `— ${percentText}` : ''
+          percentText ? `- ${percentText}` : ''
         }</span>`;
+      refreshSyncIndicator();
       return;
     }
     if (!modsReinstalling) {
       modsProgressText.hidden = true;
       modsProgressText.textContent = '';
+      refreshSyncIndicator();
       return;
     }
     const total =
@@ -208,6 +251,7 @@ domReady(async () => {
     }
     modsProgressText.hidden = false;
     modsProgressText.textContent = message;
+    refreshSyncIndicator();
   };
 
   const updateEngineProgress = ({ phase = 'download', percent = 0, active = false }) => {
@@ -355,13 +399,6 @@ domReady(async () => {
         subtitle: 'Установите дополнительные файлы лаунчера.',
         pill: 'Нет компонентов'
       };
-    } else if (!javaReady) {
-      state = {
-        level: 'error',
-        title: 'Не найдена Java 17',
-        subtitle: 'Установите Java 17 и попробуйте снова.',
-        pill: 'Java'
-      };
     } else if (modsLoading) {
       state = {
         level: 'warn',
@@ -421,25 +458,6 @@ domReady(async () => {
     updateGlobalStatus();
   };
 
-  const showJavaModal = (visible) => {
-    if (!javaModal) return;
-    javaModal.classList.toggle('visible', visible);
-  };
-
-  const handleJavaStatus = (payload) => {
-    if (!payload) return;
-    javaReady = Boolean(payload.ready);
-    if (payload.downloadUrl) {
-      javaDownloadUrl = payload.downloadUrl;
-    }
-    if (javaReady) {
-      showJavaModal(false);
-    } else {
-      showJavaModal(true);
-    }
-    updateGlobalStatus();
-  };
-
   const switchPanel = (target) => {
     panels.forEach((panel) => {
       if (panel.dataset.panel === target) {
@@ -477,8 +495,7 @@ domReady(async () => {
     }
 
     if (modsLoading) {
-      const placeholder =
-        '<li class="mod-item muted">Синхронизация модов с GitHub...</li>';
+      const placeholder = '<li class="mod-item muted">Синхронизация модов...</li>';
       if (modsSummary) {
         modsSummary.innerHTML = placeholder;
       }
@@ -558,7 +575,6 @@ domReady(async () => {
   renderMods(config.status || []);
   handleEngineStatus(Boolean(config.engineReady));
   javaDownloadUrl = config.javaDownloadUrl || defaultJavaDownloadUrl;
-  handleJavaStatus({ ready: Boolean(config.javaReady), downloadUrl: javaDownloadUrl });
 
   if (copyIpBtn) {
     const defaultCopyLabel = copyIpBtn.textContent;
@@ -636,11 +652,69 @@ domReady(async () => {
 
   const windowMinimize = document.getElementById('windowMinimize');
   const windowClose = document.getElementById('windowClose');
+  const windowFullscreen = document.getElementById('windowFullscreen');
   if (windowMinimize) {
     windowMinimize.addEventListener('click', () => window.launcherApi.minimize());
   }
   if (windowClose) {
     windowClose.addEventListener('click', () => window.launcherApi.close());
+  }
+  const setFullscreenButtonState = (isFullScreen) => {
+    if (!windowFullscreen) return;
+    windowFullscreen.classList.toggle('active', isFullScreen);
+    const icon = windowFullscreen.querySelector('span');
+    if (icon) {
+      icon.className = isFullScreen ? 'icon-collapse' : 'icon-expand';
+    }
+    windowFullscreen.title = isFullScreen ? 'Обычный режим' : 'Во весь экран';
+  };
+  if (windowFullscreen) {
+    windowFullscreen.addEventListener('click', async () => {
+      if (windowFullscreen.disabled) return;
+      windowFullscreen.disabled = true;
+      try {
+        const result = await window.launcherApi.toggleFullscreen();
+        if (result?.ok) {
+          setFullscreenButtonState(Boolean(result.fullScreen));
+        }
+      } catch {
+        // ignore
+      } finally {
+        windowFullscreen.disabled = false;
+      }
+    });
+    window.launcherApi
+      .getWindowState()
+      .then((state) => {
+        if (state?.ok) {
+          setFullscreenButtonState(Boolean(state.fullScreen));
+        }
+      })
+      .catch(() => {});
+    window.launcherApi.onFullscreenChange((payload) => {
+      if (!payload) return;
+      setFullscreenButtonState(Boolean(payload.fullScreen));
+    });
+  }
+
+  if (infoTrigger) {
+    infoTrigger.addEventListener('click', () => toggleInfoModal(true));
+  }
+  if (infoCloseBtn) {
+    infoCloseBtn.addEventListener('click', () => toggleInfoModal(false));
+  }
+  if (infoModal) {
+    infoModal.addEventListener('click', (event) => {
+      if (event.target === infoModal) {
+        toggleInfoModal(false);
+      }
+    });
+  }
+  if (infoJavaBtn) {
+    infoJavaBtn.addEventListener('click', () => {
+      const target = javaDownloadUrl || defaultJavaDownloadUrl;
+      window.launcherApi.openExternal(target);
+    });
   }
 
   if (engineInstallBtn) {
@@ -729,17 +803,6 @@ domReady(async () => {
         toggleEngineCancelButton(false);
       }
     });
-  }
-
-  if (javaDownloadBtn) {
-    javaDownloadBtn.addEventListener('click', () => {
-      const target = javaDownloadUrl || defaultJavaDownloadUrl;
-      window.launcherApi.openExternal(target);
-    });
-  }
-
-  if (javaDismissBtn) {
-    javaDismissBtn.addEventListener('click', () => showJavaModal(false));
   }
 
   if (reinstallModsBtn) {
@@ -868,9 +931,6 @@ domReady(async () => {
       handleEngineStatus(payload.ready);
     }
   });
-  window.launcherApi.onJavaStatus((payload) => {
-    handleJavaStatus(payload);
-  });
   window.launcherApi.onEngineProgress((payload) => {
     if (!payload) return;
     updateEngineProgress(payload);
@@ -906,12 +966,6 @@ domReady(async () => {
       appendLog('Ошибка: нужно установить компоненты лаунчера');
       return;
     }
-    if (!javaReady) {
-      setStatus('Установите Java 17');
-      appendLog('Ошибка: требуется Java 17');
-      showJavaModal(true);
-      return;
-    }
     const username = (usernameInput.value || '').trim();
     if (!username) {
       setStatus('Укажите ник');
@@ -938,10 +992,6 @@ domReady(async () => {
       setStatus('Клиент запущен');
       appendLog('Minecraft запущен. Удачной игры!');
       showUsernameError('');
-    } else if (response.javaMissing) {
-      setStatus('Установите Java 17');
-      appendLog('Ошибка: требуется Java 17');
-      showJavaModal(true);
     } else {
       setStatus('Ошибка');
       appendLog(`Ошибка: ${response.error}`);

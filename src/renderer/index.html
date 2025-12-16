@@ -28,6 +28,12 @@
           <li data-panel="mods">Моды</li>
           <li data-panel="settings">Настройки</li>
         </ul>
+        <div class="side-tools">
+          <button class="info-trigger" id="infoTrigger" title="Полезная информация">
+            <span class="info-trigger-icon">?</span>
+            <span class="info-trigger-label">FAQ</span>
+          </button>
+        </div>
         <div class="socials">
           <a href="https://t.me/lkwebdev" target="_blank" rel="noreferrer">Telegram</a>
           <a href="https://discord.gg/jNKZdGYc" target="_blank" rel="noreferrer">Discord</a>
@@ -36,7 +42,14 @@
       <main class="main-panel">
         <div class="window-controls">
           <button class="window-btn" id="windowMinimize" title="Свернуть">&#9472;</button>
+          <button class="window-btn window-btn-icon" id="windowFullscreen" title="Во весь экран">
+            <span class="icon-expand" aria-hidden="true"></span>
+          </button>
           <button class="window-btn close" id="windowClose" title="Закрыть">&#10005;</button>
+        </div>
+        <div class="sync-indicator" id="syncIndicator" hidden>
+          <span class="progress-spinner" aria-hidden="true"></span>
+          <span id="syncIndicatorText">Синхронизация модов...</span>
         </div>
         <section class="panel panel-play active" data-panel="play">
           <div class="stat-card">
@@ -97,7 +110,7 @@
             <header class="mods-header">
               <div>
                 <p class="section-title">Статус модов</p>
-                <p class="muted">Auto-sync из GitHub</p>
+                <p class="muted">Синхронизация модов</p>
               </div>
               <div class="mod-actions">
                 <button class="ghost" id="reinstallModsBtn">Переустановить все моды</button>
@@ -144,10 +157,6 @@
           </div>
         </section>
       </main>
-      <aside class="hero-panel">
-        <div class="hero-title">Leo Multiverse</div>
-        <p>Синхронизируем моды из GitHub-репозитория и подключаемся к серверу в пару кликов.</p>
-      </aside>
     </div>
     <div class="engine-modal" id="engineModal">
       <div class="engine-modal-content">
@@ -167,15 +176,22 @@
         </div>
       </div>
     </div>
-    <div class="engine-modal" id="javaModal">
-      <div class="engine-modal-content">
-        <h2>Требуется Java 17</h2>
-        <p>
-          Для запуска клиента необходимо установить Java 17. Нажмите кнопку ниже, чтобы перейти на страницу скачивания, затем установите Java и попробуйте снова.
-        </p>
+    <div class="engine-modal" id="infoModal">
+      <div class="engine-modal-content info-modal-content">
+        <h2>FAQ и подсказки</h2>
+        <ul class="info-list">
+          <li>
+            <h3>Игра не запускается?</h3>
+            <p>Чаще всего помогает установка Java 17. Скачайте дистрибутив, установите и перезапустите лаунчер.</p>
+            <button class="ghost mini" id="infoJavaBtn">Скачать Java 17</button>
+          </li>
+          <li>
+            <h3>После установки компонентов ничего не происходит</h3>
+            <p>Проверьте, что лаунчер завершил установку модов и перезапустите игру через кнопку «Запустить игру».</p>
+          </li>
+        </ul>
         <div class="engine-modal-actions">
-          <button class="primary" id="javaDownloadBtn">Скачать Java</button>
-          <button class="ghost" id="javaDismissBtn">Закрыть</button>
+          <button class="primary" id="infoCloseBtn">Закрыть</button>
         </div>
       </div>
     </div>

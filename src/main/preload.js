@@ -25,11 +25,13 @@ contextBridge.exposeInMainWorld('launcherApi', {
   onEngineProgress: (callback) => {
     ipcRenderer.on('engine:install-progress', (_event, payload) => callback(payload));
   },
-  onJavaStatus: (callback) => {
-    ipcRenderer.on('java:status', (_event, payload) => callback(payload));
-  },
   onModsInstallProgress: (callback) => {
     ipcRenderer.on('mods:install-progress', (_event, payload) => callback(payload));
+  },
+  toggleFullscreen: () => ipcRenderer.invoke('window:toggle-fullscreen'),
+  getWindowState: () => ipcRenderer.invoke('window:get-state'),
+  onFullscreenChange: (callback) => {
+    ipcRenderer.on('window:fullscreen', (_event, payload) => callback(payload));
   },
   minimize: () => ipcRenderer.invoke('window:minimize'),
   close: () => ipcRenderer.invoke('window:close')
