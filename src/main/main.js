@@ -247,6 +247,17 @@ const bootstrap = async () => {
     return fs.existsSync(minecraftDir) && fs.existsSync(tlauncherDir);
   };
 
+  const ensureServerEntryIfReady = async () => {
+    if (!isEngineReady()) {
+      return;
+    }
+    try {
+      await serverListManager.ensureServer(config.server);
+    } catch (error) {
+      console.error('Failed to ensure server entry:', error);
+    }
+  };
+
   const downloadEngineArchive = async (onProgress, signal) => {
     if (signal?.aborted) {
       throw new Error(ENGINE_ABORT_ERROR);
@@ -370,6 +381,7 @@ const bootstrap = async () => {
       forge: config.forge,
       java: config.java,
       lastUsername: store.get('lastUsername', ''),
+      lastMemory: store.get('lastMemory', null),
       status: modStatusesCache,
       engineReady: isEngineReady(),
       javaReady: javaStatus.ready,
@@ -539,6 +551,12 @@ const bootstrap = async () => {
         };
       }
       store.set('lastUsername', payload.username);
+      if (payload.minMemory && payload.maxMemory) {
+        store.set('lastMemory', {
+          min: payload.minMemory,
+          max: payload.maxMemory
+        });
+      }
       pushLog('Синхронизация модов');
       const modStatuses = await modManager.sync();
       mainWindow && mainWindow.webContents.send('mods:status', modStatuses);
@@ -561,19 +579,20 @@ const bootstrap = async () => {
       return { ok: false, error: error.message };
     }
   });
+
+  ipcMain.handle('launcher:store-memory', (_event, payload) => {
+    if (payload && payload.minMemory && payload.maxMemory) {
+      store.set('lastMemory', {
+        min: payload.minMemory,
+        max: payload.maxMemory
+      });
+      return { ok: true };
+    }
+    return { ok: false };
+  });
 };
 
 bootstrap().catch((err) => {
   console.error('Launcher bootstrap failed', err);
   app.quit();
 });
-  const ensureServerEntryIfReady = async () => {
-    if (!isEngineReady()) {
-      return;
-    }
-    try {
-      await serverListManager.ensureServer(config.server);
-    } catch (error) {
-      console.error('Failed to ensure server entry:', error);
-    }
-  };

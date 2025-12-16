@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('launcherApi', {
   getConfig: () => ipcRenderer.invoke('launcher:get-config'),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
+  storeMemory: (payload) => ipcRenderer.invoke('launcher:store-memory', payload),
   launch: (payload) => ipcRenderer.invoke('launcher:launch', payload),
   openMods: () => ipcRenderer.invoke('launcher:open-mods'),
   installEngine: () => ipcRenderer.invoke('engine:install'),

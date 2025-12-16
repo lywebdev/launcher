@@ -660,10 +660,6 @@ select:focus {
   gap: 6px;
 }
 
-.engine-progress.inline {
-  margin-top: 18px;
-}
-
 .engine-progress[hidden] {
   display: none;
 }

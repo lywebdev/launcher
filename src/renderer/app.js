@@ -58,12 +58,6 @@ domReady(async () => {
       fill: document.getElementById('engineProgressModalFill'),
       text: document.getElementById('engineProgressModalText'),
       timeoutId: null
-    },
-    {
-      container: document.getElementById('engineProgressInline'),
-      fill: document.getElementById('engineProgressInlineFill'),
-      text: document.getElementById('engineProgressInlineText'),
-      timeoutId: null
     }
   ];
   const modProgressState = new Map();
@@ -115,7 +109,7 @@ domReady(async () => {
     }
   };
 
-  const applyMemorySettings = (maxValue) => {
+  const applyMemorySettings = (maxValue, emitChange = true) => {
     if (!minMemInput || !maxMemInput) return;
     const sanitizedMax = Math.max(3, Number(maxValue) || 3);
     const suggestedMin = Math.max(2, Math.min(sanitizedMax - 1, Math.round(sanitizedMax / 2)));
@@ -127,11 +121,15 @@ domReady(async () => {
     if (maxMemLabel) {
       maxMemLabel.textContent = `${sanitizedMax} ГБ`;
     }
+    if (emitChange) {
+      window.launcherApi.storeMemory({ minMemory: minMemInput.value, maxMemory: maxMemInput.value });
+    }
   };
 
   const initMemorySlider = async () => {
     if (!memorySlider) return;
     let totalMem = 8;
+    let persistedMem = null;
     try {
       const info = await window.launcherApi.getSystemInfo();
       if (info?.totalMemGB) {
@@ -140,16 +138,30 @@ domReady(async () => {
     } catch {
       // ignore
     }
+    try {
+      const persisted = await window.launcherApi.getConfig();
+      if (persisted?.lastMemory) {
+        persistedMem = persisted.lastMemory;
+      }
+    } catch {
+      // ignore
+    }
     const safeTotal = Math.max(4, totalMem);
     const maxSelectable = Math.max(4, Math.min(32, Math.floor(safeTotal * 0.85)));
-    const recommended = Math.max(3, maxSelectable);
+    let recommended = Math.max(3, maxSelectable);
+    if (persistedMem?.max) {
+      const numeric = Number(persistedMem.max.replace(/[^0-9.]/g, ''));
+      if (!Number.isNaN(numeric)) {
+        recommended = Math.min(maxSelectable, Math.max(3, numeric));
+      }
+    }
     memorySlider.min = 3;
     memorySlider.max = maxSelectable;
     memorySlider.step = 0.5;
     memorySlider.value = recommended;
-    applyMemorySettings(recommended);
+    applyMemorySettings(recommended, false);
     memorySlider.addEventListener('input', (event) => {
-      applyMemorySettings(Number(event.target.value));
+      applyMemorySettings(Number(event.target.value), true);
     });
   };
 
