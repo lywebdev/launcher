@@ -1,12 +1,33 @@
 ﻿const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const AdmZip = require('adm-zip');
 const fetch = require('node-fetch');
 
+const APP_USER_MODEL_ID = 'com.leolauncher.app';
+if (process.platform === 'win32') {
+  app.setAppUserModelId(APP_USER_MODEL_ID);
+}
+
 const config = require('./config');
+const APP_VERSION = app.getVersion();
+const gotInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotInstanceLock) {
+  app.whenReady().then(() => {
+    if (Notification.isSupported()) {
+      const duplicateNotification = new Notification({
+        title: 'LeoLauncher',
+        body: 'Лаунчер уже запущен.'
+      });
+      duplicateNotification.show();
+    }
+    app.quit();
+  });
+  return;
+}
 const ensureDirSync = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -191,14 +212,40 @@ const bootstrap = async () => {
       return;
     }
     autoUpdater.autoDownload = true;
-    autoUpdater.on('update-available', () => sendLog('Найдена новая версия лаунчера. Скачиваем обновление...'));
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.on('checking-for-update', () => sendLog('Проверяем обновления лаунчера...'));
+    autoUpdater.on('update-available', () =>
+      sendLog('Найдена новая версия лаунчера. Скачиваем обновление...')
+    );
     autoUpdater.on('download-progress', (progress) => {
       sendLog(`Обновление лаунчера: ${Math.round(progress.percent)}%`);
     });
-    autoUpdater.on('update-downloaded', () => sendLog('Обновление скачано и будет установлено после перезапуска.'));
+    autoUpdater.on('update-not-available', () => sendLog('Используется актуальная версия лаунчера.'));
+    autoUpdater.on('update-downloaded', () => {
+      sendLog('Обновление скачано. Перезапуск для установки...');
+      autoUpdater.quitAndInstall(true, true);
+    });
     autoUpdater.on('error', (err) => sendLog(`Ошибка обновления лаунчера: ${err.message}`));
-    autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.checkForUpdates().catch((error) => {
+      sendLog(`Ошибка проверки обновлений: ${error.message}`);
+    });
   };
+
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'LeoLauncher',
+          body: 'Лаунчер уже запущен. Окно активировано.'
+        }).show();
+      }
+    }
+  });
 
   app.whenReady().then(() => {
     mainWindow = createWindow();
@@ -234,7 +281,8 @@ const bootstrap = async () => {
       lastMemory: store.get('lastMemory', null),
       status: modStatusesCache,
       engineReady: isEngineReady(),
-      javaDownloadUrl
+      javaDownloadUrl,
+      appVersion: APP_VERSION
     };
   });
 

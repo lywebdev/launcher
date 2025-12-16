@@ -14,6 +14,7 @@ domReady(async () => {
   const statusTitle = document.getElementById('statusTitle');
   const statusSubtitle = document.getElementById('statusSubtitle');
   const statusMessage = document.getElementById('statusMessage');
+  const appVersionLabel = document.getElementById('appVersion');
   if (statusMessage) {
     statusMessage.textContent = '';
   }
@@ -575,6 +576,9 @@ domReady(async () => {
   renderMods(config.status || []);
   handleEngineStatus(Boolean(config.engineReady));
   javaDownloadUrl = config.javaDownloadUrl || defaultJavaDownloadUrl;
+  if (appVersionLabel && config.appVersion) {
+    appVersionLabel.textContent = `Версия ${config.appVersion}`;
+  }
 
   if (copyIpBtn) {
     const defaultCopyLabel = copyIpBtn.textContent;

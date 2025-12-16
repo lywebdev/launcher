@@ -42,12 +42,16 @@ Creates `release/leo-launcher/` and `release/leo-launcher.zip` with `src/`, `con
 3. Installers land in `dist/` (e.g., `LeoLauncher Setup 0.1.0.exe`). Default install path is `C:\Program Files\LeoLauncher`, but the user can change it (`oneClick=false`, `perMachine=true`).
 
 ## Auto Updates via GitHub Releases
-1. Bump `version` in `package.json`.
-2. Create a GitHub token with `repo` scope and export it as `GH_TOKEN` (PowerShell: `setx GH_TOKEN <token>` then restart the terminal).
-3. Run `npm run dist -- --publish always` to build and publish to `lywebdev/launcher` Releases (draft by default).
-4. On app launch, `electron-updater` checks for updates (disabled in dev mode), downloads them in the background, and installs the new version after restart.
+1. Update the `version` field in `package.json` (the value is also shown inside the launcher UI under the logo).
+2. Create a GitHub token with `repo` scope and set `GH_TOKEN` in your shell (`setx GH_TOKEN <token>` on PowerShell, re-open the terminal).
+3. Run one of the release scripts:
+   - `npm run release:patch` — bump patch version (0.1.x → 0.1.x+1) and publish.
+   - `npm run release:minor` — bump minor version (0.x.y → 0.(x+1).0) and publish.
+   - `npm run release:major` — bump major version (x.y.z → (x+1).0.0) and publish.
+   Each script updates `package.json`/`package-lock.json`, rebuilds installers, and uploads them via `npm run release`.
+4. Review/publish the draft release on GitHub. Users who start the previous version will automatically download and install the new build after the launcher exits.
 
-To publish manually, upload `LeoLauncher Setup <version>.exe` and the matching `latest.yml` to a GitHub Release. The launcher reads those files on startup.
+If you prefer to upload artifacts manually, take the generated `LeoLauncher Setup <version>.exe`, `LeoLauncher Setup <version>.exe.blockmap`, and `latest.yml` from `dist/` and attach them to a GitHub Release. `electron-updater` only needs those three files.
 
 ## Useful npm Scripts
 | Script | Description |
@@ -56,6 +60,10 @@ To publish manually, upload `LeoLauncher Setup <version>.exe` and the matching `
 | `npm start` | Launch Electron in production mode. |
 | `npm run package` | Create `release/leo-launcher.zip` with sources/config. |
 | `npm run dist` | Build installers via electron-builder (NSIS on Windows). |
+| `npm run release` | Build and publish installers to GitHub Releases (requires `GH_TOKEN`). |
+| `npm run release:patch` | Bump patch version and publish via auto-update. |
+| `npm run release:minor` | Bump minor version and publish via auto-update. |
+| `npm run release:major` | Bump major version and publish via auto-update. |
 
 ## Notes
 - Ensure ForgeOptiFine resources already exist in `%APPDATA%/.minecraft` (paths referenced in `launcher.args`).

@@ -1,6 +1,6 @@
 {
   "name": "majestic-launcher",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "Custom Minecraft 1.20.1 Forge launcher with auto mod sync",
   "main": "src/main/main.js",
   "scripts": {
@@ -8,6 +8,10 @@
     "dev": "cross-env NODE_ENV=development electron .",
     "package": "node scripts/create-release.js",
     "dist": "electron-builder",
+    "release": "electron-builder --publish always",
+    "release:patch": "npm version patch --git-tag-version=false && npm run release",
+    "release:minor": "npm version minor --git-tag-version=false && npm run release",
+    "release:major": "npm version major --git-tag-version=false && npm run release",
     "lint": "echo 'Add linter of your choice'"
   },
   "dependencies": {
@@ -59,7 +63,7 @@
         "provider": "github",
         "owner": "lywebdev",
         "repo": "launcher",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ]
   }
